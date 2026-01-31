@@ -1,0 +1,362 @@
+{
+  "KC": {
+    "team": "KC",
+    "totalPlays": 1048,
+    "overall": {
+      "sampleSize": 1048,
+      "passRate": 0.602,
+      "runRate": 0.398,
+      "passLeft": 0.374,
+      "passMiddle": 0.158,
+      "passRight": 0.388,
+      "shotgunRate": 0.807,
+      "avgYards": 5.2,
+      "passAvgYards": 5.8,
+      "runAvgYards": 4.4
+    },
+    "byDown": {
+      "1": {
+        "sampleSize": 451,
+        "passRate": 0.501,
+        "runRate": 0.499,
+        "passLeft": 0.398,
+        "passMiddle": 0.146,
+        "passRight": 0.407,
+        "shotgunRate": 0.712,
+        "avgYards": 5.9,
+        "passAvgYards": 7.1,
+        "runAvgYards": 4.6
+      },
+      "2": {
+        "sampleSize": 346,
+        "passRate": 0.662,
+        "runRate": 0.338,
+        "passLeft": 0.393,
+        "passMiddle": 0.175,
+        "passRight": 0.362,
+        "shotgunRate": 0.873,
+        "avgYards": 4.7,
+        "passAvgYards": 5.2,
+        "runAvgYards": 3.8
+      },
+      "3": {
+        "sampleSize": 216,
+        "passRate": 0.718,
+        "runRate": 0.282,
+        "passLeft": 0.342,
+        "passMiddle": 0.135,
+        "passRight": 0.4,
+        "shotgunRate": 0.944,
+        "avgYards": 4.6,
+        "passAvgYards": 4.4,
+        "runAvgYards": 5.0
+      },
+      "4": {
+        "sampleSize": 32,
+        "passRate": 0.562,
+        "runRate": 0.438,
+        "passLeft": 0.167,
+        "passMiddle": 0.333,
+        "passRight": 0.444,
+        "shotgunRate": 0.594,
+        "avgYards": 5.8,
+        "passAvgYards": 8.2,
+        "runAvgYards": 2.6
+      }
+    },
+    "byDistance": {
+      "short": {
+        "sampleSize": 167,
+        "passRate": 0.425,
+        "runRate": 0.575,
+        "passLeft": 0.394,
+        "passMiddle": 0.113,
+        "passRight": 0.451,
+        "shotgunRate": 0.737,
+        "avgYards": 3.4,
+        "passAvgYards": 3.4,
+        "runAvgYards": 3.5
+      },
+      "medium": {
+        "sampleSize": 188,
+        "passRate": 0.67,
+        "runRate": 0.33,
+        "passLeft": 0.357,
+        "passMiddle": 0.19,
+        "passRight": 0.349,
+        "shotgunRate": 0.915,
+        "avgYards": 4.8,
+        "passAvgYards": 5.4,
+        "runAvgYards": 3.5
+      },
+      "long": {
+        "sampleSize": 690,
+        "passRate": 0.625,
+        "runRate": 0.375,
+        "passLeft": 0.378,
+        "passMiddle": 0.158,
+        "passRight": 0.392,
+        "shotgunRate": 0.799,
+        "avgYards": 5.8,
+        "passAvgYards": 6.3,
+        "runAvgYards": 4.9
+      }
+    },
+    "byFormation": {
+      "shotgun": {
+        "sampleSize": 846,
+        "passRate": 0.693,
+        "runRate": 0.307,
+        "passLeft": 0.375,
+        "passMiddle": 0.162,
+        "passRight": 0.391,
+        "shotgunRate": 1.0,
+        "avgYards": 5.5,
+        "passAvgYards": 6.0,
+        "runAvgYards": 4.5
+      },
+      "underCenter": {
+        "sampleSize": 202,
+        "passRate": 0.223,
+        "runRate": 0.777,
+        "passLeft": 0.356,
+        "passMiddle": 0.111,
+        "passRight": 0.356,
+        "shotgunRate": 0.0,
+        "avgYards": 3.9,
+        "passAvgYards": 3.1,
+        "runAvgYards": 4.1
+      }
+    },
+    "thirdDown": {
+      "overall": {
+        "sampleSize": 216,
+        "passRate": 0.718,
+        "runRate": 0.282,
+        "passLeft": 0.342,
+        "passMiddle": 0.135,
+        "passRight": 0.4,
+        "shotgunRate": 0.944,
+        "avgYards": 4.6,
+        "passAvgYards": 4.4,
+        "runAvgYards": 5.0
+      },
+      "short": {
+        "sampleSize": 75,
+        "passRate": 0.493,
+        "runRate": 0.507,
+        "passLeft": 0.405,
+        "passMiddle": 0.108,
+        "passRight": 0.405,
+        "shotgunRate": 0.867,
+        "avgYards": 3.7,
+        "passAvgYards": 3.4,
+        "runAvgYards": 4.0
+      },
+      "medium": {
+        "sampleSize": 59,
+        "passRate": 0.847,
+        "runRate": 0.153,
+        "passLeft": 0.32,
+        "passMiddle": 0.18,
+        "passRight": 0.38,
+        "shotgunRate": 0.983,
+        "avgYards": 5.3,
+        "passAvgYards": 5.3,
+        "runAvgYards": 5.4
+      },
+      "long": {
+        "sampleSize": 82,
+        "passRate": 0.829,
+        "runRate": 0.171,
+        "passLeft": 0.324,
+        "passMiddle": 0.118,
+        "passRight": 0.412,
+        "shotgunRate": 0.988,
+        "avgYards": 4.9,
+        "passAvgYards": 4.3,
+        "runAvgYards": 7.4
+      }
+    }
+  },
+  "PHI": {
+    "team": "PHI",
+    "totalPlays": 1067,
+    "overall": {
+      "sampleSize": 1067,
+      "passRate": 0.532,
+      "runRate": 0.468,
+      "passLeft": 0.396,
+      "passMiddle": 0.157,
+      "passRight": 0.38,
+      "shotgunRate": 0.771,
+      "avgYards": 5.3,
+      "passAvgYards": 6.1,
+      "runAvgYards": 4.3
+    },
+    "byDown": {
+      "1": {
+        "sampleSize": 453,
+        "passRate": 0.442,
+        "runRate": 0.558,
+        "passLeft": 0.43,
+        "passMiddle": 0.18,
+        "passRight": 0.345,
+        "shotgunRate": 0.731,
+        "avgYards": 5.0,
+        "passAvgYards": 6.1,
+        "runAvgYards": 4.1
+      },
+      "2": {
+        "sampleSize": 363,
+        "passRate": 0.548,
+        "runRate": 0.452,
+        "passLeft": 0.372,
+        "passMiddle": 0.131,
+        "passRight": 0.437,
+        "shotgunRate": 0.763,
+        "avgYards": 5.3,
+        "passAvgYards": 5.7,
+        "runAvgYards": 4.8
+      },
+      "3": {
+        "sampleSize": 223,
+        "passRate": 0.691,
+        "runRate": 0.309,
+        "passLeft": 0.383,
+        "passMiddle": 0.169,
+        "passRight": 0.351,
+        "shotgunRate": 0.897,
+        "avgYards": 6.0,
+        "passAvgYards": 6.7,
+        "runAvgYards": 4.7
+      },
+      "4": {
+        "sampleSize": 25,
+        "passRate": 0.52,
+        "runRate": 0.48,
+        "passLeft": 0.462,
+        "passMiddle": 0.077,
+        "passRight": 0.462,
+        "shotgunRate": 0.6,
+        "avgYards": 2.9,
+        "passAvgYards": 5.7,
+        "runAvgYards": -0.1
+      }
+    },
+    "byDistance": {
+      "short": {
+        "sampleSize": 147,
+        "passRate": 0.361,
+        "runRate": 0.639,
+        "passLeft": 0.377,
+        "passMiddle": 0.132,
+        "passRight": 0.434,
+        "shotgunRate": 0.585,
+        "avgYards": 4.2,
+        "passAvgYards": 5.5,
+        "runAvgYards": 3.5
+      },
+      "medium": {
+        "sampleSize": 197,
+        "passRate": 0.629,
+        "runRate": 0.371,
+        "passLeft": 0.379,
+        "passMiddle": 0.218,
+        "passRight": 0.331,
+        "shotgunRate": 0.787,
+        "avgYards": 6.1,
+        "passAvgYards": 7.0,
+        "runAvgYards": 4.6
+      },
+      "long": {
+        "sampleSize": 720,
+        "passRate": 0.54,
+        "runRate": 0.46,
+        "passLeft": 0.406,
+        "passMiddle": 0.141,
+        "passRight": 0.391,
+        "shotgunRate": 0.808,
+        "avgYards": 5.3,
+        "passAvgYards": 5.9,
+        "runAvgYards": 4.5
+      }
+    },
+    "byFormation": {
+      "shotgun": {
+        "sampleSize": 823,
+        "passRate": 0.627,
+        "runRate": 0.373,
+        "passLeft": 0.409,
+        "passMiddle": 0.151,
+        "passRight": 0.376,
+        "shotgunRate": 1.0,
+        "avgYards": 5.4,
+        "passAvgYards": 6.0,
+        "runAvgYards": 4.6
+      },
+      "underCenter": {
+        "sampleSize": 244,
+        "passRate": 0.213,
+        "runRate": 0.787,
+        "passLeft": 0.269,
+        "passMiddle": 0.212,
+        "passRight": 0.423,
+        "shotgunRate": 0.0,
+        "avgYards": 4.7,
+        "passAvgYards": 7.4,
+        "runAvgYards": 3.9
+      }
+    },
+    "thirdDown": {
+      "overall": {
+        "sampleSize": 223,
+        "passRate": 0.691,
+        "runRate": 0.309,
+        "passLeft": 0.383,
+        "passMiddle": 0.169,
+        "passRight": 0.351,
+        "shotgunRate": 0.897,
+        "avgYards": 6.0,
+        "passAvgYards": 6.7,
+        "runAvgYards": 4.7
+      },
+      "short": {
+        "sampleSize": 52,
+        "passRate": 0.385,
+        "runRate": 0.615,
+        "passLeft": 0.4,
+        "passMiddle": 0.15,
+        "passRight": 0.35,
+        "shotgunRate": 0.615,
+        "avgYards": 4.0,
+        "passAvgYards": 4.2,
+        "runAvgYards": 3.8
+      },
+      "medium": {
+        "sampleSize": 65,
+        "passRate": 0.785,
+        "runRate": 0.215,
+        "passLeft": 0.392,
+        "passMiddle": 0.275,
+        "passRight": 0.216,
+        "shotgunRate": 0.969,
+        "avgYards": 5.9,
+        "passAvgYards": 6.3,
+        "runAvgYards": 4.5
+      },
+      "long": {
+        "sampleSize": 106,
+        "passRate": 0.783,
+        "runRate": 0.217,
+        "passLeft": 0.373,
+        "passMiddle": 0.108,
+        "passRight": 0.434,
+        "shotgunRate": 0.991,
+        "avgYards": 7.2,
+        "passAvgYards": 7.5,
+        "runAvgYards": 6.0
+      }
+    }
+  }
+}

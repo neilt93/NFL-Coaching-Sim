@@ -1,0 +1,251 @@
+.stats-panel {
+  width: 320px;
+  background: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--bg-surface);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.card h3 {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card h4 {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.sample-size {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+/* Team Selector */
+.team-selector {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.team-selector button {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.team-selector button:hover {
+  background: var(--border);
+}
+
+.team-selector button.active.kc {
+  background: var(--kc-red);
+  border-color: var(--kc-red);
+  color: white;
+}
+
+.team-selector button.active.phi {
+  background: #004C54;
+  border-color: #004C54;
+  color: white;
+}
+
+/* Play Info */
+.situation-badge {
+  display: inline-block;
+  background: var(--accent-blue);
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.info-item {
+  text-align: center;
+}
+
+.info-item .label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.info-item .value {
+  display: block;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.info-item .value.result {
+  color: var(--accent-green);
+}
+
+/* Tendency Analysis */
+.tendency-section {
+  margin-bottom: 1rem;
+}
+
+.tendency-section h4 {
+  margin-bottom: 0.5rem;
+}
+
+.tendency-bar {
+  margin-bottom: 0.5rem;
+}
+
+.tendency-bar.highlight .bar-fill {
+  box-shadow: 0 0 8px currentColor;
+}
+
+.bar-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  margin-bottom: 0.25rem;
+}
+
+.bar-value {
+  font-weight: 600;
+}
+
+.bar-track {
+  height: 8px;
+  background: var(--bg-primary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Key Stats */
+.key-stats {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+}
+
+.stat {
+  text-align: center;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+/* Third Down Focus */
+.third-down-grid {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.third-down-item {
+  flex: 1;
+  text-align: center;
+  padding: 0.75rem 0.5rem;
+  background: var(--bg-primary);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.third-down-item.active {
+  border-color: var(--accent-yellow);
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.third-down-item .dist-label {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  margin-bottom: 0.25rem;
+}
+
+.third-down-item .pass-rate {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.third-down-item .pass-label {
+  display: block;
+  font-size: 0.6rem;
+  color: var(--text-secondary);
+}
+
+/* Play Description */
+.play-description p {
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+/* Chat Container */
+.chat-container {
+  flex: 1;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .stats-panel {
+    width: 100%;
+    max-height: 40vh;
+    border-left: none;
+    border-top: 1px solid var(--border);
+  }
+}
