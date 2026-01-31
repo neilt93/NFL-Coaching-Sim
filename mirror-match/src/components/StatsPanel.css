@@ -232,6 +232,91 @@
   color: var(--text-primary);
 }
 
+/* What-If Panel */
+.what-if-panel {
+  border: 2px solid var(--accent-yellow);
+  background: rgba(234, 179, 8, 0.05);
+}
+
+.what-if-badge {
+  background: var(--accent-yellow);
+  color: #000;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+.what-if-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+.delta-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.delta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.delta-label {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.delta-values {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.delta-original {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.delta-arrow {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+.delta-adjusted {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.delta-adjusted.positive {
+  color: var(--accent-green);
+}
+
+.delta-adjusted.negative {
+  color: var(--accent-red);
+}
+
+.delta-change {
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+.delta-change.positive {
+  color: var(--accent-green);
+}
+
+.delta-change.negative {
+  color: var(--accent-red);
+}
+
 /* Chat Container */
 .chat-container {
   flex: 1;

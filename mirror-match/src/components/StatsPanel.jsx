@@ -1,12 +1,26 @@
 import { useState } from 'react';
 import ChatInterface from './ChatInterface';
+import { applyWhatIf } from '../engine/geminiClient';
 import './StatsPanel.css';
 
 export default function StatsPanel({ play, tendencies, selectedTeam, onTeamChange }) {
   const [activeTab, setActiveTab] = useState('situation');
+  const [activeWhatIf, setActiveWhatIf] = useState(null);
+  const [whatIfInfo, setWhatIfInfo] = useState(null);
 
   const teamData = tendencies?.[selectedTeam];
   const thirdDownData = teamData?.thirdDown;
+
+  // Handle what-if changes from chat
+  const handleWhatIf = (adjustmentKey, adjustmentInfo) => {
+    setActiveWhatIf(adjustmentKey);
+    setWhatIfInfo(adjustmentInfo);
+  };
+
+  // Calculate what-if deltas
+  const whatIfResult = activeWhatIf && teamData?.overall
+    ? applyWhatIf(teamData.overall, activeWhatIf)
+    : null;
 
   // Determine current situation from play
   const down = play?.down || 0;
@@ -132,6 +146,44 @@ export default function StatsPanel({ play, tendencies, selectedTeam, onTeamChang
         </div>
       )}
 
+      {/* What-If Analysis */}
+      {whatIfResult && (
+        <div className="what-if-panel card">
+          <h3>
+            What-If Active
+            <span className="what-if-badge">{whatIfInfo?.label}</span>
+          </h3>
+          <p className="what-if-desc">{whatIfInfo?.description}</p>
+          <div className="delta-grid">
+            {Object.entries(whatIfResult.deltas).map(([key, delta]) => {
+              const isNegative = delta.change < 0;
+              const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+              return (
+                <div key={key} className="delta-item">
+                  <span className="delta-label">{label}</span>
+                  <div className="delta-values">
+                    <span className="delta-original">
+                      {typeof delta.original === 'number' && delta.original < 1
+                        ? `${(delta.original * 100).toFixed(0)}%`
+                        : delta.original?.toFixed(1)}
+                    </span>
+                    <span className="delta-arrow">→</span>
+                    <span className={`delta-adjusted ${isNegative ? 'negative' : 'positive'}`}>
+                      {typeof delta.adjusted === 'number' && delta.adjusted < 1
+                        ? `${(delta.adjusted * 100).toFixed(0)}%`
+                        : delta.adjusted?.toFixed(1)}
+                    </span>
+                    <span className={`delta-change ${isNegative ? 'negative' : 'positive'}`}>
+                      {isNegative ? '▼' : '▲'} {Math.abs(parseInt(delta.percentChange))}%
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Third Down Focus */}
       {thirdDownData?.overall && (
         <div className="third-down-focus card">
@@ -165,6 +217,7 @@ export default function StatsPanel({ play, tendencies, selectedTeam, onTeamChang
         <ChatInterface
           tendencies={tendencies}
           selectedTeam={selectedTeam}
+          onWhatIf={handleWhatIf}
         />
       </div>
     </div>

@@ -258,6 +258,40 @@ body {
   border-color: var(--accent-blue);
 }
 
+/* Camera Controls */
+.camera-controls {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.camera-controls button {
+  background: rgba(17, 24, 39, 0.85);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  backdrop-filter: blur(8px);
+}
+
+.camera-controls button:hover {
+  background: rgba(42, 53, 80, 0.9);
+  color: var(--text-primary);
+}
+
+.camera-controls button.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+}
+
 /* Stats Panel is in StatsPanel.css */
 
 /* Responsive */

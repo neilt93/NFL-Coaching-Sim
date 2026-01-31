@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { queryGemini } from '../engine/geminiClient';
+import { queryGemini, detectWhatIf, getAdjustmentInfo } from '../engine/geminiClient';
 import './ChatInterface.css';
 
 // Get API key from environment variable
@@ -58,11 +58,11 @@ function getFallbackResponse(message, tendencies, selectedTeam) {
   return DEMO_RESPONSES.default;
 }
 
-export default function ChatInterface({ tendencies, selectedTeam }) {
+export default function ChatInterface({ tendencies, selectedTeam, onWhatIf }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: `Welcome to Mirror Match! I've loaded KC and PHI tendency data from the 2025 season. ${GEMINI_API_KEY ? '🟢 Gemini API connected.' : '⚪ Demo mode (add VITE_GEMINI_API_KEY to .env for AI).'} Ask me about down-and-distance tendencies, formations, or specific situations!`
+      content: `Welcome to Mirror Match! I've loaded KC and PHI tendency data from the 2025 season. ${GEMINI_API_KEY ? '🟢 Gemini API connected.' : '⚪ Demo mode (add VITE_GEMINI_API_KEY to .env for AI).'} Ask me about down-and-distance tendencies, formations, or try "What if I blitz?"`
     }
   ]);
   const [input, setInput] = useState('');
@@ -108,10 +108,27 @@ export default function ChatInterface({ tendencies, selectedTeam }) {
 
     setIsTyping(false);
     setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+
+    // Check for what-if scenario and notify parent
+    const whatIfKey = detectWhatIf(userMessage);
+    if (whatIfKey && onWhatIf) {
+      const adjustmentInfo = getAdjustmentInfo(whatIfKey);
+      onWhatIf(whatIfKey, adjustmentInfo);
+    }
   };
 
   const handleQuickAction = (action) => {
     setInput(action);
+  };
+
+  const clearWhatIf = () => {
+    if (onWhatIf) {
+      onWhatIf(null, null);
+    }
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: 'What-if scenario cleared. Showing base tendencies.'
+    }]);
   };
 
   return (
@@ -151,14 +168,14 @@ export default function ChatInterface({ tendencies, selectedTeam }) {
         <button onClick={() => handleQuickAction("What does KC do on 3rd and 7?")}>
           3rd & 7
         </button>
-        <button onClick={() => handleQuickAction("Show me KC shotgun tendencies")}>
-          Shotgun
+        <button onClick={() => handleQuickAction("What if I blitz the A gap?")}>
+          A-Gap Blitz
         </button>
-        <button onClick={() => handleQuickAction("What if I blitz?")}>
-          What-if
+        <button onClick={() => handleQuickAction("What if I play Cover 2?")}>
+          Cover 2
         </button>
-        <button onClick={() => handleQuickAction("Compare KC vs PHI")}>
-          Compare
+        <button onClick={clearWhatIf} className="clear-btn">
+          Clear
         </button>
       </div>
 

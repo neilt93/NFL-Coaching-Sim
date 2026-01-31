@@ -126,6 +126,17 @@
   color: var(--text-primary);
 }
 
+.quick-actions button.clear-btn {
+  background: transparent;
+  border-color: var(--accent-red);
+  color: var(--accent-red);
+}
+
+.quick-actions button.clear-btn:hover {
+  background: var(--accent-red);
+  color: white;
+}
+
 /* Input */
 .chat-input {
   display: flex;

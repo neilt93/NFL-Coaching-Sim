@@ -121,3 +121,140 @@ export function parsePlayQuery(response) {
     query: null,
   };
 }
+
+/**
+ * What-If Engine - Defensive adjustment multipliers
+ */
+const WHAT_IF_ADJUSTMENTS = {
+  'A_GAP_BLITZ': {
+    label: 'A-Gap Blitz',
+    description: 'Interior pressure forces quick throws',
+    multipliers: {
+      completionPct: 0.80,   // drops ~20%
+      avgYards: 0.57,        // drops ~43%
+      sackRate: 2.0,         // doubles
+      passRate: 1.05,        // slightly more pass (hot routes)
+    }
+  },
+  'COVER_2': {
+    label: 'Cover 2',
+    description: 'Two-deep safeties take away deep shots',
+    multipliers: {
+      passRight: 0.7,
+      passLeft: 0.7,
+      passMid: 1.4,
+      avgYards: 0.85,
+      completionPct: 1.05,
+    }
+  },
+  'COVER_3': {
+    label: 'Cover 3',
+    description: 'Three-deep zone limits big plays',
+    multipliers: {
+      avgYards: 0.80,
+      completionPct: 1.0,
+      passRate: 0.95,
+    }
+  },
+  'MAN_COVERAGE': {
+    label: 'Man Coverage',
+    description: 'Tight coverage on all receivers',
+    multipliers: {
+      completionPct: 0.85,
+      avgYards: 0.9,
+      sackRate: 1.3,
+    }
+  },
+  'BLITZ': {
+    label: 'Blitz',
+    description: 'Extra pass rushers create pressure',
+    multipliers: {
+      completionPct: 0.82,
+      avgYards: 0.65,
+      sackRate: 1.8,
+    }
+  },
+  'SPY': {
+    label: 'QB Spy',
+    description: 'Defender shadows the quarterback',
+    multipliers: {
+      rushYards: 0.7,
+      scrambleRate: 0.5,
+    }
+  }
+};
+
+/**
+ * Detect what-if adjustment from user query
+ */
+export function detectWhatIf(message) {
+  const lower = message.toLowerCase();
+
+  if (!lower.includes('what if') && !lower.includes('if i') && !lower.includes('if we')) {
+    return null;
+  }
+
+  // Check for specific adjustments
+  if (lower.includes('a gap') || lower.includes('a-gap')) {
+    return 'A_GAP_BLITZ';
+  }
+  if (lower.includes('cover 2') || lower.includes('cover-2') || lower.includes('cover two')) {
+    return 'COVER_2';
+  }
+  if (lower.includes('cover 3') || lower.includes('cover-3') || lower.includes('cover three')) {
+    return 'COVER_3';
+  }
+  if (lower.includes('man') && (lower.includes('coverage') || lower.includes('to man'))) {
+    return 'MAN_COVERAGE';
+  }
+  if (lower.includes('blitz')) {
+    return 'BLITZ';
+  }
+  if (lower.includes('spy')) {
+    return 'SPY';
+  }
+
+  // Generic blitz/pressure detection
+  if (lower.includes('pressure') || lower.includes('rush')) {
+    return 'BLITZ';
+  }
+
+  return null;
+}
+
+/**
+ * Apply what-if adjustment to base tendencies
+ */
+export function applyWhatIf(baseTendencies, adjustmentKey) {
+  const adjustment = WHAT_IF_ADJUSTMENTS[adjustmentKey];
+  if (!adjustment || !baseTendencies) return null;
+
+  const adjusted = { ...baseTendencies };
+  const deltas = {};
+
+  for (const [key, multiplier] of Object.entries(adjustment.multipliers)) {
+    if (typeof adjusted[key] === 'number') {
+      const original = adjusted[key];
+      adjusted[key] = parseFloat((original * multiplier).toFixed(3));
+      deltas[key] = {
+        original,
+        adjusted: adjusted[key],
+        change: adjusted[key] - original,
+        percentChange: ((multiplier - 1) * 100).toFixed(0),
+      };
+    }
+  }
+
+  return {
+    adjustment,
+    adjusted,
+    deltas,
+  };
+}
+
+/**
+ * Get adjustment info by key
+ */
+export function getAdjustmentInfo(adjustmentKey) {
+  return WHAT_IF_ADJUSTMENTS[adjustmentKey] || null;
+}

@@ -14,6 +14,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [gameInfo, setGameInfo] = useState(null);
   const [selectedTeam, setSelectedTeam] = useState('KC');
+  const [cameraPreset, setCameraPreset] = useState('behind');
 
   // Refs for animation
   const isPlayingRef = useRef(isPlaying);
@@ -200,7 +201,26 @@ function App() {
             play={currentPlay}
             currentFrame={currentFrame}
             onFrameCount={handleFrameCount}
+            cameraPreset={cameraPreset}
           />
+
+          {/* Camera Controls */}
+          <div className="camera-controls">
+            {[
+              { id: 'behind', label: 'Behind QB' },
+              { id: 'all22', label: 'All-22' },
+              { id: 'endzone', label: 'End Zone' },
+              { id: 'sideline', label: 'Sideline' },
+            ].map(cam => (
+              <button
+                key={cam.id}
+                onClick={() => setCameraPreset(cam.id)}
+                className={cameraPreset === cam.id ? 'active' : ''}
+              >
+                {cam.label}
+              </button>
+            ))}
+          </div>
 
           {/* Timeline Scrubber */}
           <div className="timeline">

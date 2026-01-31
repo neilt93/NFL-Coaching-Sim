@@ -13,13 +13,16 @@ const TEAM_COLORS = {
   away: { primary: 0xE31837, secondary: 0xFFB81C }, // KC
 };
 
-export default function Field3D({ play, currentFrame, onFrameCount }) {
+export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset = 'behind' }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
   const cameraRef = useRef(null);
   const playersRef = useRef([]);
   const ballRef = useRef(null);
+  const ballTrailRef = useRef([]);
+  const losRef = useRef(null);
+  const firstDownRef = useRef(null);
   const frameIdRef = useRef(null);
   const isDragging = useRef(false);
   const previousMousePosition = useRef({ x: 0, y: 0 });
@@ -81,6 +84,34 @@ export default function Field3D({ play, currentFrame, onFrameCount }) {
 
     // Create field
     createField(scene);
+
+    // Create LOS line (blue with glow)
+    const losMaterial = new THREE.MeshBasicMaterial({
+      color: 0x3b82f6,
+      transparent: true,
+      opacity: 0.8
+    });
+    const losGeometry = new THREE.PlaneGeometry(0.3, FIELD_WIDTH);
+    const los = new THREE.Mesh(losGeometry, losMaterial);
+    los.rotation.x = -Math.PI / 2;
+    los.position.set(0, 0.03, FIELD_WIDTH / 2);
+    los.visible = false;
+    scene.add(los);
+    losRef.current = los;
+
+    // Create First Down line (yellow)
+    const firstDownMaterial = new THREE.MeshBasicMaterial({
+      color: 0xeab308,
+      transparent: true,
+      opacity: 0.8
+    });
+    const firstDownGeometry = new THREE.PlaneGeometry(0.3, FIELD_WIDTH);
+    const firstDown = new THREE.Mesh(firstDownGeometry, firstDownMaterial);
+    firstDown.rotation.x = -Math.PI / 2;
+    firstDown.position.set(0, 0.03, FIELD_WIDTH / 2);
+    firstDown.visible = false;
+    scene.add(firstDown);
+    firstDownRef.current = firstDown;
 
     // Animation loop
     const animate = () => {
@@ -215,7 +246,12 @@ export default function Field3D({ play, currentFrame, onFrameCount }) {
     const glowLight = new THREE.PointLight(0xffff99, 0.5, 5);
     ball.add(glowLight);
 
-    if (play.ball && play.ball.length > 0) {
+    // Position ball at passer initially
+    const passer = play.players?.find(p => p.role === 'Passer');
+    if (passer && passer.frames.length > 0) {
+      const frame = passer.frames[0];
+      ball.position.set(frame.x, 1.8, frame.y);
+    } else if (play.ball && play.ball.length > 0) {
       const frame = play.ball[0];
       ball.position.set(frame.x, 1, frame.y);
     }
@@ -223,33 +259,110 @@ export default function Field3D({ play, currentFrame, onFrameCount }) {
     scene.add(ball);
     ballRef.current = ball;
 
+    // Create ball trail (8 small spheres)
+    ballTrailRef.current.forEach(t => scene.remove(t));
+    ballTrailRef.current = [];
+    for (let i = 0; i < 8; i++) {
+      const trailGeometry = new THREE.SphereGeometry(0.15 - i * 0.015, 8, 8);
+      const trailMaterial = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.5 - i * 0.06,
+      });
+      const trailBall = new THREE.Mesh(trailGeometry, trailMaterial);
+      trailBall.visible = false;
+      scene.add(trailBall);
+      ballTrailRef.current.push(trailBall);
+    }
+
     // Report frame count
     if (onFrameCount && play.numFrames) {
       onFrameCount(play.numFrames);
     }
+
+    // Update LOS and First Down markers
+    if (losRef.current && play.yardline) {
+      // yardline is absolute field position (10-110 for playing field)
+      const losX = play.yardline || 30;
+      losRef.current.position.x = losX;
+      losRef.current.visible = true;
+    }
+
+    if (firstDownRef.current && play.yardline && play.yardsToGo) {
+      // First down marker - add yards to go to LOS position
+      // Direction depends on which way offense is going
+      const losX = play.yardline || 30;
+      const direction = play.direction === 'left' ? -1 : 1;
+      const firstDownX = losX + (play.yardsToGo * direction);
+
+      // Only show if within playing field
+      if (firstDownX >= 10 && firstDownX <= 110) {
+        firstDownRef.current.position.x = firstDownX;
+        firstDownRef.current.visible = true;
+      } else {
+        firstDownRef.current.visible = false;
+      }
+    }
   }, [play, onFrameCount]);
+
+  // Handle camera presets
+  useEffect(() => {
+    if (!cameraRef.current || !play) return;
+    const camera = cameraRef.current;
+    const losX = play.yardline || 35;
+
+    switch (cameraPreset) {
+      case 'behind':
+        // Behind QB looking downfield
+        camera.position.set(losX - 15, 20, FIELD_WIDTH / 2);
+        camera.lookAt(losX + 20, 0, FIELD_WIDTH / 2);
+        break;
+      case 'all22':
+        // High overhead view
+        camera.position.set(losX + 10, 60, FIELD_WIDTH / 2);
+        camera.lookAt(losX + 10, 0, FIELD_WIDTH / 2);
+        break;
+      case 'endzone':
+        // From behind the end zone
+        camera.position.set(losX + 50, 15, FIELD_WIDTH / 2);
+        camera.lookAt(losX, 0, FIELD_WIDTH / 2);
+        break;
+      case 'sideline':
+        // Sideline broadcast view
+        camera.position.set(losX + 5, 15, -15);
+        camera.lookAt(losX + 5, 0, FIELD_WIDTH / 2);
+        break;
+      default:
+        break;
+    }
+  }, [cameraPreset, play]);
 
   // Update positions when frame changes
   useEffect(() => {
     if (!play || currentFrame === undefined) return;
 
+    // Find passer and target for ball physics
+    const passer = play.players?.find(p => p.role === 'Passer');
+    const target = play.players?.find(p => p.role === 'Targeted Receiver');
+
+    // Estimate throw timing based on play length
+    const totalFrames = play.numFrames || 50;
+    const throwFrame = Math.floor(totalFrames * 0.35); // Ball released at ~35%
+    const catchFrame = Math.floor(totalFrames * 0.75); // Ball caught at ~75%
+
     // Update player positions
     playersRef.current.forEach(playerMesh => {
       const playerData = playerMesh.userData;
-      // Find frame by index (frames are 1-indexed in data)
       const frameIndex = currentFrame - 1;
       const frameData = playerData.frames[frameIndex];
 
       if (frameData) {
-        // Store previous position for rotation calculation
         const prevX = playerMesh.position.x;
         const prevZ = playerMesh.position.z;
 
-        // Direct position update (no interpolation for responsiveness)
         playerMesh.position.x = frameData.x;
         playerMesh.position.z = frameData.y;
 
-        // Face direction of movement
         const dx = playerMesh.position.x - prevX;
         const dz = playerMesh.position.z - prevZ;
         if (Math.abs(dx) > 0.1 || Math.abs(dz) > 0.1) {
@@ -258,15 +371,85 @@ export default function Field3D({ play, currentFrame, onFrameCount }) {
       }
     });
 
-    // Update ball position
-    if (ballRef.current && play.ball) {
+    // Update ball position with parabolic arc
+    if (ballRef.current) {
       const frameIndex = currentFrame - 1;
-      const ballFrame = play.ball[frameIndex];
-      if (ballFrame) {
+
+      if (currentFrame <= throwFrame && passer) {
+        // Ball in QB's hands
+        const passerFrame = passer.frames[frameIndex];
+        if (passerFrame) {
+          ballRef.current.position.x = passerFrame.x;
+          ballRef.current.position.z = passerFrame.y;
+          ballRef.current.position.y = 1.8; // Hand height
+        }
+      } else if (currentFrame > throwFrame && currentFrame <= catchFrame && passer && play.ballLandX) {
+        // Ball in flight - parabolic arc
+        const passerThrowFrame = passer.frames[throwFrame - 1];
+        if (passerThrowFrame) {
+          const startX = passerThrowFrame.x;
+          const startZ = passerThrowFrame.y;
+          const endX = play.ballLandX;
+          const endZ = play.ballLandY || startZ;
+
+          // Calculate arc progress (0 to 1)
+          const progress = (currentFrame - throwFrame) / (catchFrame - throwFrame);
+
+          // Linear interpolation for X and Z
+          const ballX = startX + (endX - startX) * progress;
+          const ballZ = startZ + (endZ - startZ) * progress;
+
+          // Parabolic arc for Y (height)
+          const distance = Math.sqrt((endX - startX) ** 2 + (endZ - startZ) ** 2);
+          const arcHeight = Math.min(distance * 0.2, 12); // Max 12 yards high
+          const ballY = 1.8 + Math.sin(progress * Math.PI) * arcHeight;
+
+          ballRef.current.position.set(ballX, ballY, ballZ);
+        }
+      } else if (currentFrame > catchFrame && target) {
+        // Ball caught - follow receiver
+        const targetFrame = target.frames[frameIndex];
+        if (targetFrame) {
+          ballRef.current.position.x = targetFrame.x;
+          ballRef.current.position.z = targetFrame.y;
+          ballRef.current.position.y = 1.5;
+        }
+      } else if (play.ball && play.ball[frameIndex]) {
+        // Fallback to ball data if available
+        const ballFrame = play.ball[frameIndex];
         ballRef.current.position.x = ballFrame.x;
         ballRef.current.position.z = ballFrame.y;
         ballRef.current.position.y = 1;
       }
+
+      // Update ball trail when in flight
+      const isInFlight = currentFrame > throwFrame && currentFrame <= catchFrame;
+      ballTrailRef.current.forEach((trail, i) => {
+        if (isInFlight) {
+          // Calculate trail position (slightly behind ball)
+          const trailProgress = Math.max(0, (currentFrame - throwFrame - (i + 1) * 0.5) / (catchFrame - throwFrame));
+          if (trailProgress > 0 && trailProgress < 1 && passer) {
+            const passerThrowFrame = passer.frames[throwFrame - 1];
+            if (passerThrowFrame && play.ballLandX) {
+              const startX = passerThrowFrame.x;
+              const startZ = passerThrowFrame.y;
+              const endX = play.ballLandX;
+              const endZ = play.ballLandY || startZ;
+              const distance = Math.sqrt((endX - startX) ** 2 + (endZ - startZ) ** 2);
+              const arcHeight = Math.min(distance * 0.2, 12);
+
+              trail.position.x = startX + (endX - startX) * trailProgress;
+              trail.position.z = startZ + (endZ - startZ) * trailProgress;
+              trail.position.y = 1.8 + Math.sin(trailProgress * Math.PI) * arcHeight;
+              trail.visible = true;
+            }
+          } else {
+            trail.visible = false;
+          }
+        } else {
+          trail.visible = false;
+        }
+      });
     }
   }, [currentFrame, play]);
 
