@@ -1,0 +1,290 @@
+{
+  "DET": {
+    "totalPlays": 128,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 9.328125,
+      "avgCoverage": 5.49375
+    }
+  },
+  "KC": {
+    "totalPlays": 149,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.6644295302013425,
+      "avgCoverage": 6.185906040268456
+    }
+  },
+  "CAR": {
+    "totalPlays": 146,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 6.671232876712328,
+      "avgCoverage": 5.765068493150685
+    }
+  },
+  "ATL": {
+    "totalPlays": 123,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 8.284552845528456,
+      "avgCoverage": 6.58130081300813
+    }
+  },
+  "BAL": {
+    "totalPlays": 109,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 8.614678899082568,
+      "avgCoverage": 6.090825688073394
+    }
+  },
+  "HOU": {
+    "totalPlays": 142,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 9.429577464788732,
+      "avgCoverage": 6.148591549295775
+    }
+  },
+  "CIN": {
+    "totalPlays": 144,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 6.243055555555555,
+      "avgCoverage": 6.384027777777778
+    }
+  },
+  "CLE": {
+    "totalPlays": 107,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 6.878504672897196,
+      "avgCoverage": 6.518691588785047
+    }
+  },
+  "IND": {
+    "totalPlays": 128,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.65625,
+      "avgCoverage": 5.81171875
+    }
+  },
+  "JAX": {
+    "totalPlays": 134,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.91044776119403,
+      "avgCoverage": 5.832089552238806
+    }
+  },
+  "MIN": {
+    "totalPlays": 168,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 8.220238095238095,
+      "avgCoverage": 6.081547619047619
+    }
+  },
+  "TB": {
+    "totalPlays": 100,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 8.41,
+      "avgCoverage": 6.186
+    }
+  },
+  "TEN": {
+    "totalPlays": 113,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.6902654867256635,
+      "avgCoverage": 5.72212389380531
+    }
+  },
+  "NO": {
+    "totalPlays": 128,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.015625,
+      "avgCoverage": 6.48828125
+    }
+  },
+  "PIT": {
+    "totalPlays": 124,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.887096774193548,
+      "avgCoverage": 6.425806451612903
+    }
+  },
+  "SF": {
+    "totalPlays": 108,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 10.583333333333334,
+      "avgCoverage": 6.153703703703704
+    }
+  },
+  "WAS": {
+    "totalPlays": 153,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.718954248366013,
+      "avgCoverage": 6.684967320261437
+    }
+  },
+  "ARI": {
+    "totalPlays": 122,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.704918032786885,
+      "avgCoverage": 6.248360655737705
+    }
+  },
+  "CHI": {
+    "totalPlays": 110,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 9.254545454545454,
+      "avgCoverage": 6.752727272727272
+    }
+  },
+  "GB": {
+    "totalPlays": 131,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.091603053435114,
+      "avgCoverage": 5.72442748091603
+    }
+  },
+  "LV": {
+    "totalPlays": 134,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.731343283582089,
+      "avgCoverage": 6.306716417910448
+    }
+  },
+  "DEN": {
+    "totalPlays": 120,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 9.325,
+      "avgCoverage": 7.614999999999999
+    }
+  },
+  "MIA": {
+    "totalPlays": 127,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 11.204724409448819,
+      "avgCoverage": 5.261417322834646
+    }
+  },
+  "LAC": {
+    "totalPlays": 111,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 9.18018018018018,
+      "avgCoverage": 6.257657657657658
+    }
+  },
+  "PHI": {
+    "totalPlays": 128,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 9.3515625,
+      "avgCoverage": 6.478125
+    }
+  },
+  "NE": {
+    "totalPlays": 146,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 6.719178082191781,
+      "avgCoverage": 6.395890410958904
+    }
+  },
+  "SEA": {
+    "totalPlays": 91,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 8.472527472527473,
+      "avgCoverage": 6.5296703296703305
+    }
+  },
+  "LA": {
+    "totalPlays": 155,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 8.193548387096774,
+      "avgCoverage": 6.059354838709678
+    }
+  },
+  "NYG": {
+    "totalPlays": 132,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 6.931818181818182,
+      "avgCoverage": 6.31969696969697
+    }
+  },
+  "DAL": {
+    "totalPlays": 135,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.222222222222222,
+      "avgCoverage": 6.634074074074074
+    }
+  },
+  "BUF": {
+    "totalPlays": 141,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 8.851063829787234,
+      "avgCoverage": 6.405673758865248
+    }
+  },
+  "NYJ": {
+    "totalPlays": 107,
+    "overall": {
+      "passRate": 1.0,
+      "runRate": 0.0,
+      "avgYards": 7.420560747663552,
+      "avgCoverage": 5.757943925233645
+    }
+  }
+}

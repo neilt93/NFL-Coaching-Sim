@@ -1,62 +1,52 @@
+/* Chat-Primary Layout: Stats panel is now fullscreen */
 .stats-panel {
-  width: 320px;
-  background: var(--bg-secondary);
-  border-left: 1px solid var(--border);
+  flex: 1;
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  overflow: hidden;
+  max-width: 1400px;
+  margin: 0 auto;
+  width: 100%;
   padding: 1rem;
-  overflow-y: auto;
+  gap: 1.5rem;
+}
+
+/* Stats Section - Left sidebar in fullscreen */
+.stats-section {
+  width: 320px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-}
-
-.card {
-  background: var(--bg-surface);
-  border-radius: 8px;
+  gap: 0.75rem;
+  background: var(--bg-secondary);
   padding: 1rem;
-}
-
-.card h3 {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.75rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.card h4 {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 0.5rem;
-}
-
-.sample-size {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  font-weight: 400;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  height: fit-content;
+  max-height: calc(100vh - 100px);
+  overflow-y: auto;
 }
 
 /* Team Selector */
 .team-selector {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 .team-selector button {
   flex: 1;
-  padding: 0.75rem;
+  min-width: 45px;
+  padding: 0.5rem 0.25rem;
   border: 1px solid var(--border);
   background: var(--bg-surface);
   color: var(--text-secondary);
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
+  font-size: 0.75rem;
   transition: all 0.15s ease;
 }
 
@@ -64,273 +54,183 @@
   background: var(--border);
 }
 
-.team-selector button.active.kc {
-  background: var(--kc-red);
-  border-color: var(--kc-red);
+.team-selector button.active {
   color: white;
 }
 
-.team-selector button.active.phi {
-  background: #004C54;
-  border-color: #004C54;
-  color: white;
+.team-selector button.active.kc { background: #E31837; border-color: #E31837; }
+.team-selector button.active.phi { background: #004C54; border-color: #004C54; }
+.team-selector button.active.buf { background: #00338D; border-color: #00338D; }
+.team-selector button.active.sf { background: #AA0000; border-color: #AA0000; }
+.team-selector button.active.mia { background: #008E97; border-color: #008E97; }
+.team-selector button.active.det { background: #0076B6; border-color: #0076B6; }
+
+/* Hero Stats - THE BIG NUMBERS */
+.hero-stats {
+  display: flex;
+  justify-content: space-between;
+  background: linear-gradient(135deg, var(--bg-surface) 0%, rgba(59, 130, 246, 0.1) 100%);
+  border-radius: 12px;
+  padding: 1rem;
+  border: 1px solid var(--border);
 }
 
-/* Play Info */
+.hero-stat {
+  text-align: center;
+  flex: 1;
+}
+
+.hero-value {
+  display: block;
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  line-height: 1;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.hero-label {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-top: 0.25rem;
+}
+
+/* Context Row */
+.context-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
 .situation-badge {
   display: inline-block;
   background: var(--accent-blue);
   color: white;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  padding: 0.35rem 0.75rem;
+  border-radius: 16px;
   font-weight: 700;
-  font-size: 1.1rem;
-  margin-bottom: 0.75rem;
+  font-size: 0.85rem;
 }
 
-.info-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
+.sample-size {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
 }
 
-.info-item {
-  text-align: center;
+/* Active Query */
+.active-query {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid var(--accent-yellow);
+  border-radius: 8px;
+  padding: 0.5rem 0.75rem;
 }
 
-.info-item .label {
-  display: block;
+.query-label {
+  font-weight: 600;
+  color: var(--accent-yellow);
+  font-size: 0.85rem;
+}
+
+.query-count {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Direction Bars */
+.direction-bars {
+  background: var(--bg-surface);
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.direction-header {
   font-size: 0.7rem;
+  font-weight: 600;
   color: var(--text-secondary);
   text-transform: uppercase;
-}
-
-.info-item .value {
-  display: block;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.info-item .value.result {
-  color: var(--accent-green);
-}
-
-/* Tendency Analysis */
-.tendency-section {
-  margin-bottom: 1rem;
-}
-
-.tendency-section h4 {
+  letter-spacing: 0.05em;
   margin-bottom: 0.5rem;
 }
 
 .tendency-bar {
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
 }
 
-.tendency-bar.highlight .bar-fill {
-  box-shadow: 0 0 8px currentColor;
+.tendency-bar:last-child {
+  margin-bottom: 0;
 }
 
 .bar-label {
   display: flex;
   justify-content: space-between;
-  font-size: 0.8rem;
-  margin-bottom: 0.25rem;
+  font-size: 0.75rem;
+  margin-bottom: 0.2rem;
+  color: var(--text-secondary);
 }
 
 .bar-value {
-  font-weight: 600;
+  font-weight: 700;
+  color: var(--text-primary);
 }
 
 .bar-track {
-  height: 8px;
-  background: var(--bg-primary);
-  border-radius: 4px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
   overflow: hidden;
 }
 
 .bar-fill {
   height: 100%;
-  border-radius: 4px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+  box-shadow: 0 0 8px rgba(251, 191, 36, 0.4);
   transition: width 0.3s ease;
 }
 
-/* Key Stats */
-.key-stats {
-  display: flex;
-  justify-content: space-around;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-  margin-top: 0.5rem;
+/* Section Divider - hidden in fullscreen layout */
+.section-divider {
+  display: none;
 }
 
-.stat {
-  text-align: center;
-}
-
-.stat-value {
-  display: block;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--accent-blue);
-}
-
-.stat-label {
-  display: block;
-  font-size: 0.65rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-}
-
-/* Third Down Focus */
-.third-down-grid {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.third-down-item {
+/* Chat Section - Takes the majority of space */
+.chat-section {
   flex: 1;
-  text-align: center;
-  padding: 0.75rem 0.5rem;
-  background: var(--bg-primary);
-  border-radius: 6px;
-  border: 2px solid transparent;
-  transition: all 0.15s ease;
-}
-
-.third-down-item.active {
-  border-color: var(--accent-yellow);
-  background: rgba(234, 179, 8, 0.1);
-}
-
-.third-down-item .dist-label {
-  display: block;
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  margin-bottom: 0.25rem;
-}
-
-.third-down-item .pass-rate {
-  display: block;
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.third-down-item .pass-label {
-  display: block;
-  font-size: 0.6rem;
-  color: var(--text-secondary);
-}
-
-/* Play Description */
-.play-description p {
-  font-size: 0.8rem;
-  line-height: 1.5;
-  color: var(--text-primary);
-}
-
-/* What-If Panel */
-.what-if-panel {
-  border: 2px solid var(--accent-yellow);
-  background: rgba(234, 179, 8, 0.05);
-}
-
-.what-if-badge {
-  background: var(--accent-yellow);
-  color: #000;
-  padding: 0.2rem 0.5rem;
-  border-radius: 4px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: none;
-}
-
-.what-if-desc {
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  margin-bottom: 0.75rem;
-  font-style: italic;
-}
-
-.delta-grid {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-}
-
-.delta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.delta-label {
-  font-size: 0.7rem;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-}
-
-.delta-values {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.delta-original {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-}
-
-.delta-arrow {
-  color: var(--text-secondary);
-  font-size: 0.8rem;
-}
-
-.delta-adjusted {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-
-.delta-adjusted.positive {
-  color: var(--accent-green);
-}
-
-.delta-adjusted.negative {
-  color: var(--accent-red);
-}
-
-.delta-change {
-  font-size: 0.75rem;
-  font-weight: 600;
-  margin-left: auto;
-}
-
-.delta-change.positive {
-  color: var(--accent-green);
-}
-
-.delta-change.negative {
-  color: var(--accent-red);
-}
-
-/* Chat Container */
-.chat-container {
-  flex: 1;
-  min-height: 250px;
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border);
 }
 
 /* Responsive */
 @media (max-width: 900px) {
   .stats-panel {
+    flex-direction: column;
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  .stats-section {
     width: 100%;
-    max-height: 40vh;
-    border-left: none;
-    border-top: 1px solid var(--border);
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .chat-section {
+    min-height: 400px;
+  }
+
+  .hero-value {
+    font-size: 1.5rem;
   }
 }

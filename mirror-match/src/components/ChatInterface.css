@@ -2,9 +2,9 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  background: var(--bg-surface);
-  border-radius: 8px;
+  background: var(--bg-secondary);
   overflow: hidden;
+  border-radius: 12px;
 }
 
 .chat-header {
@@ -17,8 +17,8 @@
 }
 
 .chat-header h3 {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: 1rem;
+  font-weight: 700;
   color: var(--text-primary);
 }
 
@@ -43,7 +43,13 @@
 .message {
   display: flex;
   gap: 0.5rem;
-  max-width: 90%;
+  max-width: 70%;
+}
+
+@media (max-width: 900px) {
+  .message {
+    max-width: 90%;
+  }
 }
 
 .message.user {
@@ -57,10 +63,10 @@
 }
 
 .message-content {
-  padding: 0.75rem 1rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  line-height: 1.5;
+  padding: 1rem 1.25rem;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  line-height: 1.6;
 }
 
 .message.assistant .message-content {
@@ -106,16 +112,38 @@
   padding: 0.5rem 1rem;
   border-top: 1px solid var(--border);
   overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.quick-actions::-webkit-scrollbar {
+  height: 4px;
+}
+
+.quick-actions::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.quick-actions::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
+
+.quick-actions::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
 }
 
 .quick-actions button {
   flex-shrink: 0;
-  padding: 0.4rem 0.75rem;
-  background: var(--bg-secondary);
+  padding: 0.5rem 1rem;
+  background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: 20px;
   color: var(--text-secondary);
-  font-size: 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 500;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
@@ -185,4 +213,133 @@
 .chat-input button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Portal Window - Mini preview that opens fullscreen */
+.portal-window {
+  margin-top: 0.75rem;
+  width: 180px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.portal-window:hover {
+  border-color: var(--accent-blue);
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.3);
+}
+
+.portal-window-field {
+  height: 100px;
+  background: linear-gradient(180deg, #1a472a 0%, #0d2818 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Field yard lines */
+.field-lines {
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px,
+      transparent 16px,
+      rgba(255, 255, 255, 0.15) 16px,
+      rgba(255, 255, 255, 0.15) 18px
+    );
+}
+
+.field-lines::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateX(-50%);
+}
+
+.field-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+/* Route preview - glowing lines */
+.preview-routes {
+  position: absolute;
+  inset: 10px;
+  background:
+    linear-gradient(45deg, transparent 40%, rgba(0, 255, 0, 0.4) 45%, transparent 50%),
+    linear-gradient(-30deg, transparent 35%, rgba(0, 255, 255, 0.3) 40%, transparent 45%),
+    linear-gradient(60deg, transparent 50%, rgba(255, 0, 255, 0.3) 55%, transparent 60%);
+  filter: blur(1px);
+  animation: routePulse 2s ease-in-out infinite;
+}
+
+@keyframes routePulse {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
+}
+
+/* Pass chart preview - dots */
+.preview-dots {
+  position: absolute;
+  inset: 0;
+}
+
+.preview-dots::before {
+  content: '';
+  position: absolute;
+  width: 6px; height: 6px;
+  background: #22c55e;
+  border-radius: 50%;
+  top: 30%; left: 40%;
+  box-shadow:
+    15px 10px 0 #22c55e,
+    -10px 20px 0 #fff,
+    25px -5px 0 #22c55e,
+    -5px -10px 0 #22c55e,
+    30px 25px 0 #fff,
+    -20px 5px 0 #22c55e;
+}
+
+/* Replay preview - player dots */
+.preview-players {
+  position: absolute;
+  inset: 0;
+}
+
+.preview-players::before {
+  content: '';
+  position: absolute;
+  width: 8px; height: 8px;
+  background: #ef4444;
+  border-radius: 50%;
+  top: 50%; left: 30%;
+  box-shadow:
+    10px 0 0 #ef4444,
+    20px 5px 0 #ef4444,
+    30px -5px 0 #ef4444,
+    40px 0 0 #ef4444,
+    60px 0 0 #3b82f6,
+    70px 10px 0 #3b82f6,
+    55px -10px 0 #3b82f6,
+    80px 5px 0 #3b82f6;
+}
+
+.portal-window-label {
+  padding: 0.4rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

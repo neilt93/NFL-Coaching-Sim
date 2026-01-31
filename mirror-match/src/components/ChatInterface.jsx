@@ -1,68 +1,14 @@
 import { useState, useRef, useEffect } from 'react';
-import { queryGemini, detectWhatIf, getAdjustmentInfo } from '../engine/geminiClient';
+import { queryGemini } from '../engine/geminiClient';
 import './ChatInterface.css';
 
-// Get API key from environment variable
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
-// Fallback responses when API is not available
-const DEMO_RESPONSES = {
-  'default': "I can help you analyze NFL tendencies. Try asking about specific situations like '3rd and 7' or 'red zone' plays.",
-  'third': "KC passes 72% on 3rd down, with 94% of those plays from shotgun. They favor the right side of the field (40%) and average 4.6 yards per play.",
-  '3rd': "KC passes 72% on 3rd down, with 94% of those plays from shotgun. They favor the right side of the field (40%) and average 4.6 yards per play.",
-  'red zone': "In the red zone, KC's passing game shifts to quick throws. They target the middle of the field more often due to compressed spacing.",
-  'shotgun': "KC uses shotgun on 81% of plays overall. On 3rd down, that jumps to 94%. They're one of the most shotgun-heavy teams in the league.",
-  'pass': "KC's overall pass rate is 60%. On 1st down it's 50/50, but by 3rd down they pass 72% of the time.",
-  'run': "KC runs 40% of the time overall. Their most frequent run situations are 1st down (50%) and short-yardage (3 yards or less).",
-  'kelce': "Travis Kelce is the primary target on crossing routes and in the red zone. He sees increased targets on 3rd down and medium distance.",
-  'mahomes': "Patrick Mahomes excels when given time in shotgun formations. His scrambling ability adds an extra dimension when plays break down.",
-  'tendencies': "KC's key tendencies: 60% pass overall, 72% pass on 3rd down, 81% shotgun rate, favors right side of field on passes.",
-  'blitz': "When facing a blitz, KC typically adjusts to hot routes and quick throws. Completion percentage drops but they get the ball out faster.",
-  'what if': "Against a blitz, KC's completion rate drops about 15% but they compensate with hot routes. Average time to throw drops from 2.8s to 2.1s.",
-  'eagles': "PHI runs 42% of the time with a strong outside zone scheme. On 3rd down they pass 70%, favoring the left side of the field.",
-  'phi': "PHI runs 42% of the time with a strong outside zone scheme. On 3rd down they pass 70%, favoring the left side of the field.",
-};
-
-function getFallbackResponse(message, tendencies, selectedTeam) {
-  const lower = message.toLowerCase();
-
-  // Check for team-specific queries
-  if (lower.includes('phi') || lower.includes('eagle')) {
-    const phiData = tendencies?.PHI?.overall;
-    if (phiData) {
-      return `PHI 2025: ${(phiData.passRate * 100).toFixed(0)}% pass, ${(phiData.runRate * 100).toFixed(0)}% run. Shotgun rate: ${(phiData.shotgunRate * 100).toFixed(0)}%. Average ${phiData.avgYards} yards per play.`;
-    }
-  }
-
-  // Check for KC queries
-  if (lower.includes('kc') || lower.includes('chief')) {
-    const kcData = tendencies?.KC?.overall;
-    if (kcData) {
-      return `KC 2025: ${(kcData.passRate * 100).toFixed(0)}% pass, ${(kcData.runRate * 100).toFixed(0)}% run. Shotgun rate: ${(kcData.shotgunRate * 100).toFixed(0)}%. Average ${kcData.avgYards} yards per play.`;
-    }
-  }
-
-  // Check keyword matches
-  for (const [key, response] of Object.entries(DEMO_RESPONSES)) {
-    if (lower.includes(key)) {
-      return response;
-    }
-  }
-
-  // Generate response from actual data if available
-  const teamData = tendencies?.[selectedTeam]?.overall;
-  if (teamData) {
-    return `${selectedTeam} passes ${(teamData.passRate * 100).toFixed(0)}% of the time overall, averaging ${teamData.avgYards} yards per play. They use shotgun on ${(teamData.shotgunRate * 100).toFixed(0)}% of snaps.`;
-  }
-
-  return DEMO_RESPONSES.default;
-}
-
-export default function ChatInterface({ tendencies, selectedTeam, onWhatIf }) {
+export default function ChatInterface({ plays, tendencies, selectedTeam, onQuery }) {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: `Welcome to Mirror Match! I've loaded KC and PHI tendency data from the 2025 season. ${GEMINI_API_KEY ? '🟢 Gemini API connected.' : '⚪ Demo mode (add VITE_GEMINI_API_KEY to .env for AI).'} Ask me about down-and-distance tendencies, formations, or try "What if I blitz?"`
+      content: `Ready to analyze ${selectedTeam}. Ask me about situations like "3rd and long", "red zone", or "tight coverage" and I'll show you matching plays.`
     }
   ]);
   const [input, setInput] = useState('');
@@ -77,6 +23,22 @@ export default function ChatInterface({ tendencies, selectedTeam, onWhatIf }) {
     scrollToBottom();
   }, [messages]);
 
+  // Update welcome message when team changes
+  useEffect(() => {
+    setMessages([{
+      role: 'assistant',
+      content: `Ready to analyze ${selectedTeam}. Ask me about situations like "3rd and long", "red zone", or "tight coverage" and I'll show you matching plays.`
+    }]);
+  }, [selectedTeam]);
+
+  // Handle clicking on a portal card
+  const handlePortalClick = (portal) => {
+    if (onQuery) {
+      const label = buildFilterLabel(portal.filters);
+      onQuery(portal.filters, label, portal.viewMode || 'replay');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -86,49 +48,43 @@ export default function ChatInterface({ tendencies, selectedTeam, onWhatIf }) {
 
     // Add user message
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
-
     setIsTyping(true);
 
-    let response;
-
     try {
-      if (GEMINI_API_KEY) {
-        // Use Gemini API
-        response = await queryGemini(userMessage, tendencies, selectedTeam, GEMINI_API_KEY);
-      } else {
-        // Fallback to demo mode
-        await new Promise(resolve => setTimeout(resolve, 600 + Math.random() * 400));
-        response = getFallbackResponse(userMessage, tendencies, selectedTeam);
-      }
+      // Query Gemini to get filters + response
+      const result = await queryGemini(userMessage, tendencies, selectedTeam, GEMINI_API_KEY);
+
+      setIsTyping(false);
+
+      // Add assistant response WITH portal card if filters were returned
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: result.response,
+        // Include portal data so we can render a clickable card
+        portal: result.filters ? {
+          filters: result.filters,
+          viewMode: result.viewMode || 'replay',
+          label: buildFilterLabel(result.filters)
+        } : null
+      }]);
+
     } catch (error) {
       console.error('Chat error:', error);
-      response = `Sorry, I encountered an error. ${error.message}. Using cached data instead: ` +
-        getFallbackResponse(userMessage, tendencies, selectedTeam);
-    }
-
-    setIsTyping(false);
-    setMessages(prev => [...prev, { role: 'assistant', content: response }]);
-
-    // Check for what-if scenario and notify parent
-    const whatIfKey = detectWhatIf(userMessage);
-    if (whatIfKey && onWhatIf) {
-      const adjustmentInfo = getAdjustmentInfo(whatIfKey);
-      onWhatIf(whatIfKey, adjustmentInfo);
+      setIsTyping(false);
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: `Error: ${error.message}. Try asking about "3rd down" or "red zone" plays.`
+      }]);
     }
   };
 
-  const handleQuickAction = (action) => {
-    setInput(action);
-  };
-
-  const clearWhatIf = () => {
-    if (onWhatIf) {
-      onWhatIf(null, null);
-    }
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: 'What-if scenario cleared. Showing base tendencies.'
-    }]);
+  const handleQuickAction = (query) => {
+    setInput(query);
+    // Auto-submit
+    setTimeout(() => {
+      const form = document.querySelector('.chat-input');
+      if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
+    }, 100);
   };
 
   return (
@@ -143,17 +99,30 @@ export default function ChatInterface({ tendencies, selectedTeam, onWhatIf }) {
       <div className="chat-messages">
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role}`}>
-            <div className="message-avatar">
-              {msg.role === 'assistant' ? '🤖' : '👤'}
-            </div>
             <div className="message-content">
               {msg.content}
+              {/* Portal window - clickable mini preview */}
+              {msg.portal && (
+                <div
+                  className="portal-window"
+                  onClick={() => handlePortalClick(msg.portal)}
+                >
+                  <div className="portal-window-field">
+                    <div className="field-lines"></div>
+                    <div className="field-overlay">
+                      {msg.portal.viewMode === 'routes' && <div className="preview-routes"></div>}
+                      {msg.portal.viewMode === 'chart' && <div className="preview-dots"></div>}
+                      {msg.portal.viewMode === 'replay' && <div className="preview-players"></div>}
+                    </div>
+                  </div>
+                  <div className="portal-window-label">{msg.portal.label}</div>
+                </div>
+              )}
             </div>
           </div>
         ))}
         {isTyping && (
           <div className="message assistant">
-            <div className="message-avatar">🤖</div>
             <div className="message-content typing">
               <span className="dot"></span>
               <span className="dot"></span>
@@ -165,17 +134,17 @@ export default function ChatInterface({ tendencies, selectedTeam, onWhatIf }) {
       </div>
 
       <div className="quick-actions">
-        <button onClick={() => handleQuickAction("What does KC do on 3rd and 7?")}>
-          3rd & 7
+        <button onClick={() => handleQuickAction("Show me 3rd and long plays")}>
+          3rd & Long
         </button>
-        <button onClick={() => handleQuickAction("What if I blitz the A gap?")}>
-          A-Gap Blitz
+        <button onClick={() => handleQuickAction("Show me Kelce routes")}>
+          Kelce Routes
         </button>
-        <button onClick={() => handleQuickAction("What if I play Cover 2?")}>
-          Cover 2
+        <button onClick={() => handleQuickAction("Red zone plays")}>
+          Red Zone
         </button>
-        <button onClick={clearWhatIf} className="clear-btn">
-          Clear
+        <button onClick={() => handleQuickAction("Where do they throw?")}>
+          Pass Chart
         </button>
       </div>
 
@@ -184,13 +153,66 @@ export default function ChatInterface({ tendencies, selectedTeam, onWhatIf }) {
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about tendencies..."
+          placeholder="Ask about situations..."
           disabled={isTyping}
         />
         <button type="submit" disabled={isTyping || !input.trim()}>
-          →
+          Send
         </button>
       </form>
     </div>
   );
+}
+
+// Build a human-readable label from filters
+function buildFilterLabel(filters) {
+  const parts = [];
+
+  if (filters.offense) {
+    parts.push(filters.offense);
+  }
+
+  if (filters.targetPlayer) {
+    parts.push(filters.targetPlayer + ' Routes');
+  }
+
+  if (filters.down) {
+    let downStr = `${filters.down}${getOrdinal(filters.down)} down`;
+    if (filters.distanceMin) {
+      downStr += ` (${filters.distanceMin}+ yds)`;
+    } else if (filters.distanceMax) {
+      downStr += ` (1-${filters.distanceMax} yds)`;
+    }
+    parts.push(downStr);
+  }
+
+  if (filters.fieldZone === 'redzone') {
+    parts.push('Red Zone');
+  }
+
+  if (filters.coverageTight === true) {
+    parts.push('Tight Coverage');
+  } else if (filters.coverageTight === false) {
+    parts.push('Off Coverage');
+  }
+
+  if (filters.shotgun === true) {
+    parts.push('Shotgun');
+  } else if (filters.shotgun === false) {
+    parts.push('Under Center');
+  }
+
+  if (filters.playType === 'pass') {
+    parts.push('Pass Plays');
+  } else if (filters.playType === 'run') {
+    parts.push('Run Plays');
+  }
+
+  return parts.join(' - ') || 'All Plays';
+}
+
+function getOrdinal(n) {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
 }
