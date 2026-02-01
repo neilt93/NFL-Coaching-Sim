@@ -80,4 +80,4 @@ Uses NFL tracking data with 10fps player positions. Each play includes:
 
 ---
 
-Built for Google Gemini API Developer Competition 2025
+Built for Google Gemini API Developer Competition 2026
