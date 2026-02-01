@@ -4,34 +4,25 @@ import './ChatInterface.css';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 
+const suggestedQueries = [
+  "Show me Kelce routes",
+  "KC red zone plays",
+  "Pass Chart",
+  "Show longest throws",
+];
+
 export default function ChatInterface({ plays, tendencies, selectedTeam, onQuery }) {
-  const [messages, setMessages] = useState([
-    {
-      role: 'assistant',
-      content: `Ready to analyze ${selectedTeam}. Ask me about situations like "3rd and long", "red zone", or "tight coverage" and I'll show you matching plays.`
-    }
-  ]);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef(null);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  const scrollRef = useRef(null);
 
   useEffect(() => {
-    scrollToBottom();
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
   }, [messages]);
 
-  // Update welcome message when team changes
-  useEffect(() => {
-    setMessages([{
-      role: 'assistant',
-      content: `Ready to analyze ${selectedTeam}. Ask me about situations like "3rd and long", "red zone", or "tight coverage" and I'll show you matching plays.`
-    }]);
-  }, [selectedTeam]);
-
-  // Handle clicking on a portal card
   const handlePortalClick = (portal) => {
     if (onQuery) {
       const label = buildFilterLabel(portal.filters);
@@ -45,22 +36,83 @@ export default function ChatInterface({ plays, tendencies, selectedTeam, onQuery
 
     const userMessage = input.trim();
     setInput('');
-
-    // Add user message
     setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
     setIsTyping(true);
 
     try {
-      // Query Gemini to get filters + response
       const result = await queryGemini(userMessage, tendencies, selectedTeam, GEMINI_API_KEY);
-
       setIsTyping(false);
 
-      // Add assistant response WITH portal card if filters were returned
+      // Calculate stats from filtered plays if we have filters
+      let stats = null;
+      if (result.filters && plays.length > 0) {
+        const matchingPlays = plays.filter(p => {
+          if (result.filters.offense && p.offense !== result.filters.offense) return false;
+          if (result.filters.down && p.down !== result.filters.down) return false;
+          if (result.filters.distanceMin && p.yardsToGo < result.filters.distanceMin) return false;
+
+          // Red zone filter - use ball position if no yardline
+          if (result.filters.fieldZone === 'redzone') {
+            let inRedZone = false;
+            if (p.yardline !== undefined) {
+              inRedZone = p.yardline <= 20;
+            } else if (p.ball && p.ball.length > 0) {
+              const ballFrame = p.ball.find(b => b.f === 1) || p.ball[0];
+              if (ballFrame?.x !== undefined) {
+                inRedZone = ballFrame.x >= 90 || ballFrame.x <= 20;
+              }
+            }
+            if (!inRedZone) return false;
+          }
+
+          // Play type filter
+          if (result.filters.playType) {
+            const isPassPlay = p.passResult && p.passResult !== '';
+            if (result.filters.playType === 'pass' && !isPassPlay) return false;
+            if (result.filters.playType === 'run' && isPassPlay) return false;
+          }
+
+          // Yards gained filters (for "longest throws", "big plays", etc.)
+          if (result.filters.yardsGainedMin !== undefined && (p.yardsGained || 0) < result.filters.yardsGainedMin) {
+            return false;
+          }
+          if (result.filters.yardsGainedMax !== undefined && (p.yardsGained || 0) > result.filters.yardsGainedMax) {
+            return false;
+          }
+
+          // Touchdown filter
+          if (result.filters.isTouchdown) {
+            const isTD = p.isTouchdown || (p.description && p.description.toLowerCase().includes('touchdown'));
+            if (!isTD) return false;
+          }
+
+          // Check targetPlayer filter
+          if (result.filters.targetPlayer) {
+            const playerName = result.filters.targetPlayer.toLowerCase();
+            const hasPlayer = p.players?.some(player =>
+              (player.name || '').toLowerCase().includes(playerName)
+            );
+            if (!hasPlayer) return false;
+          }
+          return true;
+        });
+        console.log('ChatInterface stats - matching plays:', matchingPlays.length, 'filters:', result.filters);
+
+        if (matchingPlays.length > 0) {
+          const passPlays = matchingPlays.filter(p => p.passResult);
+          const completions = passPlays.filter(p => p.passResult === 'C' || p.yardsGained > 0);
+          stats = {
+            plays: matchingPlays.length,
+            completion: passPlays.length > 0 ? Math.round((completions.length / passPlays.length) * 100) : 0,
+            avgYards: matchingPlays.reduce((sum, p) => sum + (p.yardsGained || 0), 0) / matchingPlays.length,
+          };
+        }
+      }
+
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: result.response,
-        // Include portal data so we can render a clickable card
+        stats: stats,
         portal: result.filters ? {
           filters: result.filters,
           viewMode: result.viewMode || 'replay',
@@ -73,142 +125,169 @@ export default function ChatInterface({ plays, tendencies, selectedTeam, onQuery
       setIsTyping(false);
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: `Error: ${error.message}. Try asking about "3rd down" or "red zone" plays.`
+        content: `I couldn't process that request. Try asking about a specific team and situation, like "Show me KC red zone plays" or "Buffalo 3rd down tendencies".`
       }]);
     }
   };
 
-  const handleQuickAction = (query) => {
+  const handleSuggestion = (query) => {
     setInput(query);
-    // Auto-submit
     setTimeout(() => {
-      const form = document.querySelector('.chat-input');
+      const form = document.querySelector('.chat-input-form');
       if (form) form.dispatchEvent(new Event('submit', { bubbles: true }));
     }, 100);
   };
 
   return (
     <div className="chat-interface">
-      <div className="chat-header">
-        <h3>AI Coach</h3>
-        <span className={`model-badge ${GEMINI_API_KEY ? 'active' : ''}`}>
-          {GEMINI_API_KEY ? 'Gemini 2.0' : 'Demo'}
-        </span>
-      </div>
-
-      <div className="chat-messages">
-        {messages.map((msg, i) => (
-          <div key={i} className={`message ${msg.role}`}>
-            <div className="message-content">
-              {msg.content}
-              {/* Portal window - clickable mini preview */}
-              {msg.portal && (
-                <div
-                  className="portal-window"
-                  onClick={() => handlePortalClick(msg.portal)}
+      {/* Chat Messages */}
+      <div className="chat-messages" ref={scrollRef}>
+        {messages.length === 0 ? (
+          <div className="welcome-screen">
+            <div className="welcome-icon">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <h2>Welcome, Coach</h2>
+            <p className="welcome-subtitle">
+              I analyze NFL play data to help you understand tendencies and patterns.
+              Ask me about any team, situation, or player.
+            </p>
+            <div className="suggestions">
+              <p className="suggestions-label">Try asking:</p>
+              {suggestedQueries.map((query, i) => (
+                <button
+                  key={i}
+                  className="suggestion-btn"
+                  onClick={() => handleSuggestion(query)}
                 >
-                  <div className="portal-window-field">
-                    <div className="field-lines"></div>
-                    <div className="field-overlay">
-                      {msg.portal.viewMode === 'routes' && <div className="preview-routes"></div>}
-                      {msg.portal.viewMode === 'chart' && <div className="preview-dots"></div>}
-                      {msg.portal.viewMode === 'replay' && <div className="preview-players"></div>}
-                    </div>
-                  </div>
-                  <div className="portal-window-label">{msg.portal.label}</div>
-                </div>
-              )}
+                  {query}
+                </button>
+              ))}
             </div>
           </div>
-        ))}
+        ) : (
+          messages.map((msg, i) => (
+            <div key={i} className="message-container">
+              <div className={`message-row ${msg.role}`}>
+                {msg.role === 'assistant' && (
+                  <div className="ai-avatar">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                      <path d="M2 17l10 5 10-5"/>
+                      <path d="M2 12l10 5 10-5"/>
+                    </svg>
+                  </div>
+                )}
+                <div className={`message-bubble ${msg.role}`}>
+                  {msg.content}
+                </div>
+              </div>
+
+              {/* Stats Card */}
+              {msg.stats && (
+                <div className="stats-card">
+                  <div className="stats-grid">
+                    <div className="stat-item">
+                      <div className="stat-value">{msg.stats.plays}</div>
+                      <div className="stat-label">Plays</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">{msg.stats.completion}%</div>
+                      <div className="stat-label">Completion</div>
+                    </div>
+                    <div className="stat-item">
+                      <div className="stat-value">{msg.stats.avgYards.toFixed(1)}</div>
+                      <div className="stat-label">Avg Yards</div>
+                    </div>
+                  </div>
+
+                  {msg.portal && (
+                    <button
+                      className="simulation-btn"
+                      onClick={() => handlePortalClick(msg.portal)}
+                    >
+                      <span>Watch Plays</span>
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <polygon points="5 3 19 12 5 21 5 3"/>
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Portal card (when no stats but has filters) */}
+              {!msg.stats && msg.portal && (
+                <button className="portal-btn" onClick={() => handlePortalClick(msg.portal)}>
+                  <span>View: {msg.portal.label}</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          ))
+        )}
+
         {isTyping && (
-          <div className="message assistant">
-            <div className="message-content typing">
+          <div className="message-row assistant">
+            <div className="ai-avatar">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                <path d="M2 17l10 5 10-5"/>
+                <path d="M2 12l10 5 10-5"/>
+              </svg>
+            </div>
+            <div className="message-bubble assistant typing">
               <span className="dot"></span>
               <span className="dot"></span>
               <span className="dot"></span>
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
-      <div className="quick-actions">
-        <button onClick={() => handleQuickAction("Show me 3rd and long plays")}>
-          3rd & Long
-        </button>
-        <button onClick={() => handleQuickAction("Show me Kelce routes")}>
-          Kelce Routes
-        </button>
-        <button onClick={() => handleQuickAction("Red zone plays")}>
-          Red Zone
-        </button>
-        <button onClick={() => handleQuickAction("Where do they throw?")}>
-          Pass Chart
-        </button>
-      </div>
-
-      <form className="chat-input" onSubmit={handleSubmit}>
+      {/* Input */}
+      <form className="chat-input-form" onSubmit={handleSubmit}>
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about situations..."
+          placeholder="Ask about any team, situation, or player..."
           disabled={isTyping}
         />
         <button type="submit" disabled={isTyping || !input.trim()}>
-          Send
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
         </button>
       </form>
     </div>
   );
 }
 
-// Build a human-readable label from filters
 function buildFilterLabel(filters) {
+  if (!filters) return 'All Plays';
   const parts = [];
 
-  if (filters.offense) {
-    parts.push(filters.offense);
-  }
-
-  if (filters.targetPlayer) {
-    parts.push(filters.targetPlayer + ' Routes');
-  }
-
+  if (filters.offense) parts.push(filters.offense);
+  if (filters.targetPlayer) parts.push(filters.targetPlayer + ' Routes');
   if (filters.down) {
     let downStr = `${filters.down}${getOrdinal(filters.down)} down`;
-    if (filters.distanceMin) {
-      downStr += ` (${filters.distanceMin}+ yds)`;
-    } else if (filters.distanceMax) {
-      downStr += ` (1-${filters.distanceMax} yds)`;
-    }
+    if (filters.distanceMin) downStr += ` (${filters.distanceMin}+ yds)`;
+    else if (filters.distanceMax) downStr += ` (1-${filters.distanceMax} yds)`;
     parts.push(downStr);
   }
+  if (filters.fieldZone === 'redzone') parts.push('Red Zone');
+  if (filters.coverageTight === true) parts.push('Tight Coverage');
+  if (filters.playType === 'pass') parts.push('Pass Plays');
+  else if (filters.playType === 'run') parts.push('Run Plays');
 
-  if (filters.fieldZone === 'redzone') {
-    parts.push('Red Zone');
-  }
-
-  if (filters.coverageTight === true) {
-    parts.push('Tight Coverage');
-  } else if (filters.coverageTight === false) {
-    parts.push('Off Coverage');
-  }
-
-  if (filters.shotgun === true) {
-    parts.push('Shotgun');
-  } else if (filters.shotgun === false) {
-    parts.push('Under Center');
-  }
-
-  if (filters.playType === 'pass') {
-    parts.push('Pass Plays');
-  } else if (filters.playType === 'run') {
-    parts.push('Run Plays');
-  }
-
-  return parts.join(' - ') || 'All Plays';
+  return parts.join(' · ') || 'All Plays';
 }
 
 function getOrdinal(n) {

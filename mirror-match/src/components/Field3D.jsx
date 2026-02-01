@@ -52,7 +52,46 @@ function createNumberSprite(number, color = '#ffffff') {
   return sprite;
 }
 
-export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset = 'behind', resetCamera = 0, cameraSpeed = 1, viewMode = 'replay', filteredPlays = [] }) {
+// Create player name label sprite
+function createNameSprite(name, position, bgColor = '#00ffff') {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d');
+
+  // Build display text
+  const displayText = `${name}${position ? ' · ' + position : ''}`;
+
+  // Background pill
+  ctx.fillStyle = bgColor;
+  ctx.beginPath();
+  ctx.roundRect(8, 8, 240, 48, 24);
+  ctx.fill();
+
+  // Border
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // Name text
+  ctx.fillStyle = '#000000';
+  ctx.font = 'bold 28px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(displayText, 128, 34);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  const spriteMaterial = new THREE.SpriteMaterial({
+    map: texture,
+    transparent: true,
+    depthTest: false
+  });
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.scale.set(6, 1.5, 1);
+  return sprite;
+}
+
+export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset = 'behind', resetCamera = 0, cameraSpeed = 1, viewMode = 'replay', filteredPlays = [], highlightPlayer = null }) {
   const containerRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
@@ -332,140 +371,150 @@ export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset
 
         // Update ball position with interpolation
         if (ballRef.current) {
-          const passer = play.players?.find(p => p.role === 'Passer');
-          const target = play.players?.find(p => p.role === 'Targeted Receiver');
+          // Check if we have direct ball tracking data
+          if (play.ball && play.ball.length > 0) {
+            // Use actual ball tracking data from the play
+            const ballFrameA = play.ball.find(f => f.f === frameFloor);
+            const ballFrameB = play.ball.find(f => f.f === frameCeil);
 
-          // Use numInputFrames as throw frame (end of input data = ball release)
-          const throwFrame = play.numInputFrames || Math.floor((play.numFrames || 50) * 0.35);
-          const catchFrame = play.numFrames || throwFrame + 20;
-
-          if (displayFrame <= throwFrame && passer) {
-            // Ball in QB's hands - interpolate with passer position
-            const passerFrameA = passer.frames.find(f => f.f === frameFloor);
-            const passerFrameB = passer.frames.find(f => f.f === frameCeil);
-
-            if (passerFrameA) {
-              if (passerFrameB && passerFrameB !== passerFrameA) {
-                ballRef.current.position.x = lerp(passerFrameA.x, passerFrameB.x, t);
-                ballRef.current.position.z = lerp(passerFrameA.y, passerFrameB.y, t);
+            if (ballFrameA) {
+              // Interpolate X/Z position from tracking data
+              if (ballFrameB && ballFrameB !== ballFrameA) {
+                ballRef.current.position.x = lerp(ballFrameA.x, ballFrameB.x, t);
+                ballRef.current.position.z = lerp(ballFrameA.y, ballFrameB.y, t);
               } else {
-                ballRef.current.position.x = passerFrameA.x;
-                ballRef.current.position.z = passerFrameA.y;
+                ballRef.current.position.x = ballFrameA.x;
+                ballRef.current.position.z = ballFrameA.y;
               }
-              ballRef.current.position.y = 1.8;
-            }
-          } else if (displayFrame > throwFrame && displayFrame <= catchFrame && passer && play.ballLandX) {
-            // Ball in flight - parabolic arc with enhanced glow
-            const passerThrowFrame = passer.frames.find(f => f.f === throwFrame);
-            if (passerThrowFrame) {
-              const startX = passerThrowFrame.x;
-              const startZ = passerThrowFrame.y;
-              const endX = play.ballLandX;
-              const endZ = play.ballLandY || startZ;
 
-              // Smooth progress through flight
-              const progress = (displayFrame - throwFrame) / (catchFrame - throwFrame);
+              // Detect throw and catch by analyzing ball speed from tracking data
+              const throwFrame = play.numInputFrames || Math.floor((play.numFrames || 50) * 0.3);
 
-              // Linear interpolation for X and Z
-              const ballX = lerp(startX, endX, progress);
-              const ballZ = lerp(startZ, endZ, progress);
-
-              // Parabolic arc for Y (height)
-              const distance = Math.sqrt((endX - startX) ** 2 + (endZ - startZ) ** 2);
-              const arcHeight = Math.min(distance * 0.15, 12);
-              const ballY = 1.8 + Math.sin(progress * Math.PI) * arcHeight;
-
-              ballRef.current.position.set(ballX, ballY, ballZ);
-
-              // Enhanced glow during flight
-              if (ballRef.current.userData.light) {
-                ballRef.current.userData.light.intensity = 1.5; // Brighter during flight
+              // Find catch frame by detecting when ball slows down (reaches receiver)
+              // Ball moves fast during throw, slows when caught
+              let catchFrame = play.numFrames || 50;
+              const ballFrames = play.ball.filter(f => f.f > throwFrame).sort((a, b) => a.f - b.f);
+              for (let i = 1; i < ballFrames.length - 1; i++) {
+                const prev = ballFrames[i - 1];
+                const curr = ballFrames[i];
+                const speed = Math.sqrt((curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2);
+                // Ball slows significantly when caught (speed drops below threshold)
+                if (speed < 0.5 && curr.f > throwFrame + 5) {
+                  catchFrame = curr.f;
+                  break;
+                }
               }
-              if (ballRef.current.userData.glow) {
-                ballRef.current.userData.glow.scale.setScalar(1.5);
-              }
-              if (ballRef.current.userData.material) {
-                ballRef.current.userData.material.emissiveIntensity = 0.5;
-              }
-            }
-          } else if (displayFrame > catchFrame && target) {
-            // Ball caught - follow receiver with interpolation
-            const targetFrameA = target.frames.find(f => f.f === frameFloor);
-            const targetFrameB = target.frames.find(f => f.f === frameCeil);
+              // Ensure catch frame is reasonable (not too late)
+              catchFrame = Math.min(catchFrame, throwFrame + 25, (play.numFrames || 50) - 3);
 
-            if (targetFrameA) {
-              if (targetFrameB && targetFrameB !== targetFrameA) {
-                ballRef.current.position.x = lerp(targetFrameA.x, targetFrameB.x, t);
-                ballRef.current.position.z = lerp(targetFrameA.y, targetFrameB.y, t);
+              // Calculate ball height based on phase
+              if (displayFrame <= throwFrame) {
+                // PRE-THROW: Ball in QB's hands
+                ballRef.current.position.y = 1.8;
+                if (ballRef.current.userData.light) ballRef.current.userData.light.intensity = 0.3;
+                if (ballRef.current.userData.glow) ballRef.current.userData.glow.scale.setScalar(1);
+              } else if (displayFrame < catchFrame) {
+                // IN FLIGHT: Parabolic arc from throw to catch
+                const flightDuration = catchFrame - throwFrame;
+                const flightProgress = (displayFrame - throwFrame) / flightDuration;
+
+                // Parabolic arc - starts at 1.8 (hand), peaks in middle, ends at 1.5 (catch height)
+                const peakHeight = 6; // Max height of arc
+                const arcHeight = Math.sin(flightProgress * Math.PI) * peakHeight;
+                const baseHeight = lerp(1.8, 1.5, flightProgress); // Descend from throw to catch height
+                ballRef.current.position.y = baseHeight + arcHeight;
+
+                // Bright glow during flight
+                if (ballRef.current.userData.light) ballRef.current.userData.light.intensity = 1.5;
+                if (ballRef.current.userData.glow) ballRef.current.userData.glow.scale.setScalar(1.5);
+                if (ballRef.current.userData.material) ballRef.current.userData.material.emissiveIntensity = 0.5;
               } else {
-                ballRef.current.position.x = targetFrameA.x;
-                ballRef.current.position.z = targetFrameA.y;
-              }
-              ballRef.current.position.y = 1.5;
+                // CAUGHT: Ball at receiver height, follows receiver
+                ballRef.current.position.y = 1.5;
 
-              // Catch flash effect (brief bright pulse that fades)
-              const catchProgress = displayFrame - catchFrame;
-              if (catchProgress < 3) {
-                const flashIntensity = Math.max(0, 2 - catchProgress * 0.6);
-                if (ballRef.current.userData.light) {
-                  ballRef.current.userData.light.intensity = flashIntensity;
-                }
-                if (ballRef.current.userData.glow) {
-                  ballRef.current.userData.glow.scale.setScalar(1 + flashIntensity);
-                }
-                if (ballRef.current.userData.material) {
-                  ballRef.current.userData.material.emissiveIntensity = flashIntensity * 0.5;
-                }
-              } else {
-                // Normal after catch
-                if (ballRef.current.userData.light) {
-                  ballRef.current.userData.light.intensity = 0.3;
-                }
-                if (ballRef.current.userData.glow) {
-                  ballRef.current.userData.glow.scale.setScalar(1);
-                }
-                if (ballRef.current.userData.material) {
-                  ballRef.current.userData.material.emissiveIntensity = 0.1;
+                // Brief catch flash effect
+                const catchProgress = displayFrame - catchFrame;
+                if (catchProgress < 3) {
+                  const flash = Math.max(0, 2 - catchProgress * 0.6);
+                  if (ballRef.current.userData.light) ballRef.current.userData.light.intensity = flash;
+                  if (ballRef.current.userData.glow) ballRef.current.userData.glow.scale.setScalar(1 + flash * 0.5);
+                } else {
+                  if (ballRef.current.userData.light) ballRef.current.userData.light.intensity = 0.3;
+                  if (ballRef.current.userData.glow) ballRef.current.userData.glow.scale.setScalar(1);
+                  if (ballRef.current.userData.material) ballRef.current.userData.material.emissiveIntensity = 0.1;
                 }
               }
-            }
-          } else {
-            // Ball in QB's hands - dim glow
-            if (ballRef.current.userData.light) {
-              ballRef.current.userData.light.intensity = 0.3;
-            }
-            if (ballRef.current.userData.glow) {
-              ballRef.current.userData.glow.scale.setScalar(1);
-            }
-          }
 
-          // Update ball trail when in flight
-          const isInFlight = displayFrame > throwFrame && displayFrame <= catchFrame;
-          ballTrailRef.current.forEach((trail, i) => {
-            if (isInFlight && passer && play.ballLandX) {
-              const passerThrowFrame = passer.frames.find(f => f.f === throwFrame);
-              if (passerThrowFrame) {
-                const trailProgress = Math.max(0, (displayFrame - throwFrame - (i + 1) * 0.3) / (catchFrame - throwFrame));
-                if (trailProgress > 0 && trailProgress < 1) {
-                  const startX = passerThrowFrame.x;
-                  const startZ = passerThrowFrame.y;
-                  const endX = play.ballLandX;
-                  const endZ = play.ballLandY || startZ;
-                  const distance = Math.sqrt((endX - startX) ** 2 + (endZ - startZ) ** 2);
-                  const arcHeight = Math.min(distance * 0.15, 12);
-
-                  trail.position.x = lerp(startX, endX, trailProgress);
-                  trail.position.z = lerp(startZ, endZ, trailProgress);
-                  trail.position.y = 1.8 + Math.sin(trailProgress * Math.PI) * arcHeight;
-                  trail.visible = true;
+              // Update ball trail (only during flight)
+              const isInFlight = displayFrame > throwFrame && displayFrame < catchFrame;
+              ballTrailRef.current.forEach((trail, i) => {
+                if (isInFlight) {
+                  const trailFrame = Math.floor(displayFrame - (i + 1) * 1.5);
+                  const trailBallFrame = play.ball.find(f => f.f === trailFrame);
+                  if (trailBallFrame && trailFrame > throwFrame) {
+                    trail.position.x = trailBallFrame.x;
+                    trail.position.z = trailBallFrame.y;
+                    // Calculate trail height
+                    const flightDuration = catchFrame - throwFrame;
+                    const trailProgress = (trailFrame - throwFrame) / flightDuration;
+                    const arcHeight = Math.sin(trailProgress * Math.PI) * 6;
+                    const baseHeight = lerp(1.8, 1.5, trailProgress);
+                    trail.position.y = baseHeight + arcHeight;
+                    trail.visible = true;
+                  } else {
+                    trail.visible = false;
+                  }
                 } else {
                   trail.visible = false;
                 }
-              }
-            } else {
-              trail.visible = false;
+              });
             }
-          });
+          } else {
+            // Fallback: use player-based ball animation if no tracking data
+            const passer = play.players?.find(p => p.role === 'Passer');
+            const target = play.players?.find(p =>
+              p.role === 'Targeted Receiver' ||
+              (play.targetNflId && p.nflId === play.targetNflId)
+            );
+
+            const throwFrame = play.numInputFrames || Math.floor((play.numFrames || 50) * 0.35);
+            const catchFrame = play.numFrames || throwFrame + 20;
+
+            if (displayFrame <= throwFrame && passer) {
+              // Ball in QB's hands
+              const passerFrameA = passer.frames.find(f => f.f === frameFloor);
+              const passerFrameB = passer.frames.find(f => f.f === frameCeil);
+
+              if (passerFrameA) {
+                if (passerFrameB && passerFrameB !== passerFrameA) {
+                  ballRef.current.position.x = lerp(passerFrameA.x, passerFrameB.x, t);
+                  ballRef.current.position.z = lerp(passerFrameA.y, passerFrameB.y, t);
+                } else {
+                  ballRef.current.position.x = passerFrameA.x;
+                  ballRef.current.position.z = passerFrameA.y;
+                }
+                ballRef.current.position.y = 1.8;
+              }
+            } else if (target) {
+              // After throw - follow target if we have one
+              const targetFrameA = target.frames.find(f => f.f === frameFloor);
+              const targetFrameB = target.frames.find(f => f.f === frameCeil);
+
+              if (targetFrameA) {
+                if (targetFrameB && targetFrameB !== targetFrameA) {
+                  ballRef.current.position.x = lerp(targetFrameA.x, targetFrameB.x, t);
+                  ballRef.current.position.z = lerp(targetFrameA.y, targetFrameB.y, t);
+                } else {
+                  ballRef.current.position.x = targetFrameA.x;
+                  ballRef.current.position.z = targetFrameA.y;
+                }
+                ballRef.current.position.y = 1.5;
+              }
+            }
+
+            // Hide trails when no tracking data
+            ballTrailRef.current.forEach(trail => trail.visible = false);
+          }
         }
       }
 
@@ -592,80 +641,83 @@ export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset
     avgLOS = avgLOS / filteredPlays.length;
 
     // === ROUTES MODE - THE WOW MOMENT ===
-    // Shows ONLY the targeted receiver's route for each play
-    // Plays are pre-filtered by targetPlayer in tendencyEngine
+    // Shows routes ONLY for highlighted player (e.g., Kelce) - NO FALLBACK to all players
     if (viewMode === 'routes') {
-      const routeColor = 0x00ffff; // Cyan for route lines
+      // MUST have a target player for routes mode - no spaghetti
+      if (!highlightPlayer) {
+        console.log('Routes mode requires a target player - skipping');
+        return;
+      }
 
       filteredPlays.forEach((playData) => {
-        // ONLY show the targeted receiver - this is the key
-        const target = playData.players?.find(p => p.role === 'Targeted Receiver');
-        if (!target?.frames || target.frames.length < 3) return;
-
-        // Determine completion status
+        // Determine completion status for this play
         const isComplete = playData.passResult === 'C' || playData.passResult === 'complete' ||
                           (playData.yardsGained && playData.yardsGained > 0);
-        const endpointColor = isComplete ? 0x22c55e : 0xef4444; // Green for catch, red for incomplete
 
-        // Build points from tracking frames
-        const points = [];
-        const sortedFrames = [...target.frames].sort((a, b) => a.f - b.f);
+        // Find ONLY the highlighted player
+        const playerName = highlightPlayer.toLowerCase();
+        const targetPlayers = playData.players?.filter(p => {
+          const name = (p.name || p.displayName || '').toLowerCase();
+          return name.includes(playerName);
+        }) || [];
 
-        // Sample every 2nd frame for smoother lines
-        for (let i = 0; i < sortedFrames.length; i += 2) {
-          const frame = sortedFrames[i];
-          points.push(new THREE.Vector3(frame.x, 0.3, frame.y));
-          // Track bounds
-          minX = Math.min(minX, frame.x);
-          maxX = Math.max(maxX, frame.x);
-          minZ = Math.min(minZ, frame.y);
-          maxZ = Math.max(maxZ, frame.y);
-        }
-        // Always include last frame
-        const lastFrame = sortedFrames[sortedFrames.length - 1];
-        points.push(new THREE.Vector3(lastFrame.x, 0.3, lastFrame.y));
-        minX = Math.min(minX, lastFrame.x);
-        maxX = Math.max(maxX, lastFrame.x);
-        minZ = Math.min(minZ, lastFrame.y);
-        maxZ = Math.max(maxZ, lastFrame.y);
+        // Skip this play if target player not found
+        if (targetPlayers.length === 0) return;
 
-        if (points.length < 2) return;
+        targetPlayers.forEach((player) => {
+          if (!player.frames || player.frames.length < 3) return;
 
-        // Create smooth curve
-        const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5);
+          // Build points from tracking frames
+          const points = [];
+          const sortedFrames = [...player.frames].sort((a, b) => a.f - b.f);
 
-        // Visible route line - overlaps accumulate brightness
-        const tubeGeometry = new THREE.TubeGeometry(curve, Math.min(points.length * 3, 48), 0.12, 6, false);
-        const tubeMaterial = new THREE.MeshBasicMaterial({
-          color: routeColor,
-          transparent: true,
-          opacity: 0.35
+          // Sample every 2nd frame for smoother lines
+          for (let i = 0; i < sortedFrames.length; i += 2) {
+            const frame = sortedFrames[i];
+            points.push(new THREE.Vector3(frame.x, 0.3, frame.y));
+            // Track bounds
+            minX = Math.min(minX, frame.x);
+            maxX = Math.max(maxX, frame.x);
+            minZ = Math.min(minZ, frame.y);
+            maxZ = Math.max(maxZ, frame.y);
+          }
+          // Always include last frame
+          const lastFrame = sortedFrames[sortedFrames.length - 1];
+          points.push(new THREE.Vector3(lastFrame.x, 0.3, lastFrame.y));
+          minX = Math.min(minX, lastFrame.x);
+          maxX = Math.max(maxX, lastFrame.x);
+          minZ = Math.min(minZ, lastFrame.y);
+          maxZ = Math.max(maxZ, lastFrame.y);
+
+          if (points.length < 2) return;
+
+          // Create smooth curve
+          const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal', 0.5);
+
+          // BRIGHT route line - cyan/yellow, thick, high opacity
+          const routeColor = highlightPlayer ? 0x00ffff : 0xffff00; // Cyan for highlighted, yellow otherwise
+          const tubeGeometry = new THREE.TubeGeometry(curve, Math.min(points.length * 3, 48), 0.25, 8, false);
+          const tubeMaterial = new THREE.MeshBasicMaterial({
+            color: routeColor,
+            transparent: true,
+            opacity: 0.85
+          });
+          const routeTube = new THREE.Mesh(tubeGeometry, tubeMaterial);
+          chartGroup.add(routeTube);
+
+          // Endpoint dot - green = catch, red = incomplete
+          const endpointColor = isComplete ? 0x22c55e : 0xef4444;
+          const endPoint = points[points.length - 1];
+          const dotGeometry = new THREE.SphereGeometry(1.0, 16, 16);
+          const dotMaterial = new THREE.MeshBasicMaterial({
+            color: endpointColor,
+            transparent: true,
+            opacity: 0.95
+          });
+          const dot = new THREE.Mesh(dotGeometry, dotMaterial);
+          dot.position.copy(endPoint);
+          chartGroup.add(dot);
         });
-        const routeTube = new THREE.Mesh(tubeGeometry, tubeMaterial);
-        chartGroup.add(routeTube);
-
-        // FAT BRIGHT ENDPOINT DOT - Green = catch, Red = incomplete
-        const endPoint = points[points.length - 1];
-        const dotGeometry = new THREE.SphereGeometry(1.0, 16, 16);
-        const dotMaterial = new THREE.MeshBasicMaterial({
-          color: endpointColor,
-          transparent: true,
-          opacity: 0.95
-        });
-        const dot = new THREE.Mesh(dotGeometry, dotMaterial);
-        dot.position.copy(endPoint);
-        chartGroup.add(dot);
-
-        // Glow around endpoint (same color as completion status)
-        const glowGeometry = new THREE.SphereGeometry(1.5, 16, 16);
-        const glowMaterial = new THREE.MeshBasicMaterial({
-          color: endpointColor,
-          transparent: true,
-          opacity: 0.3
-        });
-        const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-        glow.position.copy(endPoint);
-        chartGroup.add(glow);
       });
 
       // Add LOS line for context
@@ -831,73 +883,157 @@ export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset
       ballRef.current = null;
     }
 
-    // Create players - BIGGER, clearer colors
+    // === FIND KEY PLAYERS FOR FOCUS MODE ===
+    // When highlighting a player, dim everyone except: target, QB, nearest defender
+    let highlightedPlayerData = null;
+    let nearestDefenderId = null;
+
+    if (highlightPlayer) {
+      // Find the highlighted player
+      highlightedPlayerData = play.players.find(p => {
+        const name = (p.name || p.displayName || '').toLowerCase();
+        return name.includes(highlightPlayer.toLowerCase());
+      });
+
+      // Find nearest defender to highlighted player (at frame 1)
+      if (highlightedPlayerData) {
+        const hpFrame = highlightedPlayerData.frames?.find(f => f.f === 1);
+        if (hpFrame) {
+          let minDist = Infinity;
+          play.players.forEach(p => {
+            if (p.side === 'Defense') {
+              const defFrame = p.frames?.find(f => f.f === 1);
+              if (defFrame) {
+                const dist = Math.sqrt((hpFrame.x - defFrame.x) ** 2 + (hpFrame.y - defFrame.y) ** 2);
+                if (dist < minDist) {
+                  minDist = dist;
+                  nearestDefenderId = p.nflId;
+                }
+              }
+            }
+          });
+        }
+      }
+    }
+
+    // Create players - FOCUS MODE when highlighting
     play.players.forEach(playerData => {
-      // Clear color scheme:
-      // - Offense: bright white/blue
-      // - Defense: orange/red
-      // - QB (Passer): BIG glowing gold
-      // - Target: BIG glowing cyan
+      // Check player roles
+      const playerName = (playerData.name || playerData.displayName || '').toLowerCase();
+      const isHighlightedPlayer = highlightPlayer && playerName.includes(highlightPlayer.toLowerCase());
       const isOffense = playerData.side === 'Offense';
       const isQB = playerData.role === 'Passer';
-      const isTarget = playerData.role === 'Targeted Receiver';
-      const isKeyPlayer = isQB || isTarget;
+      const isTarget = playerData.role === 'Targeted Receiver' ||
+        (play.targetNflId && playerData.nflId === play.targetNflId);
+      const isMatchupDefender = nearestDefenderId && playerData.nflId === nearestDefenderId;
 
-      // Size - key players are BIGGER
-      const bodyRadius = isKeyPlayer ? 1.2 : 0.9;  // Much bigger than before (was 0.5)
-      const bodyHeight = isKeyPlayer ? 2.0 : 1.6;
-      const headRadius = isKeyPlayer ? 0.5 : 0.4;
+      // === FOCUS MODE: Dim everyone except key players ===
+      let opacity = 1.0;
+      let showLabel = false;
+      let showGlow = false;
 
-      // Colors - clear distinction
+      if (highlightPlayer) {
+        // FOCUS MODE ACTIVE
+        if (isHighlightedPlayer) {
+          // THE STAR: Bright, glowing, label
+          opacity = 1.0;
+          showLabel = true;
+          showGlow = true;
+        } else if (isQB) {
+          // QB: Visible but secondary
+          opacity = 0.7;
+          showLabel = true;
+          showGlow = false;
+        } else if (isMatchupDefender) {
+          // MATCHUP DEFENDER: Shows the coverage
+          opacity = 0.6;
+          showLabel = true;
+          showGlow = false;
+        } else {
+          // GHOST everyone else
+          opacity = 0.15;
+          showLabel = false;
+          showGlow = false;
+        }
+      } else {
+        // NO FOCUS - normal mode
+        if (isQB || isTarget) {
+          showLabel = true;
+          showGlow = true;
+        }
+      }
+
+      // Uniform size for all players
+      const bodyRadius = 0.85;
+      const bodyHeight = 1.7;
+      const headRadius = 0.38;
+
+      // Colors based on role
       let bodyColor, emissiveColor, emissiveIntensity, headColor;
 
-      if (isQB) {
-        // QB: Bright gold, strong glow
+      if (isHighlightedPlayer) {
+        // HIGHLIGHTED: Bright cyan (not magenta - cyan pops more)
+        bodyColor = 0x00FFFF;
+        emissiveColor = 0x00FFFF;
+        emissiveIntensity = 0.8;
+        headColor = 0xFFFFFF;
+      } else if (isQB) {
+        // QB: Gold
         bodyColor = 0xFFD700;
         emissiveColor = 0xFFD700;
-        emissiveIntensity = 0.6;
+        emissiveIntensity = highlightPlayer ? 0.3 : 0.6;
         headColor = 0xFFFFFF;
-      } else if (isTarget) {
-        // Target receiver: Bright cyan, strong glow
+      } else if (isMatchupDefender) {
+        // MATCHUP DEFENDER: Dim red
+        bodyColor = 0xFF4444;
+        emissiveColor = 0xFF2222;
+        emissiveIntensity = 0.3;
+        headColor = 0xFFAAAA;
+      } else if (isTarget && !highlightPlayer) {
+        // Target (normal mode only)
         bodyColor = 0x00FFFF;
         emissiveColor = 0x00FFFF;
         emissiveIntensity = 0.6;
         headColor = 0xFFFFFF;
       } else if (isOffense) {
-        // Offense: Bright white/light blue
+        // Offense: Blue (dimmed in focus mode)
         bodyColor = 0x4488FF;
         emissiveColor = 0x4488FF;
-        emissiveIntensity = 0.15;
+        emissiveIntensity = highlightPlayer ? 0.05 : 0.15;
         headColor = 0xFFFFFF;
       } else {
-        // Defense: Orange/red - clearly different
+        // Defense: Orange/red (dimmed in focus mode)
         bodyColor = 0xFF6600;
         emissiveColor = 0xFF4400;
-        emissiveIntensity = 0.2;
+        emissiveIntensity = highlightPlayer ? 0.05 : 0.2;
         headColor = 0xFF8800;
       }
 
       // Create player group
       const playerGroup = new THREE.Group();
-      playerGroup.userData = { ...playerData, positionHistory: [] };
+      playerGroup.userData = { ...playerData, positionHistory: [], isHighlighted: isHighlightedPlayer };
 
-      // Body - BIGGER capsule, HIGH resolution
-      const bodyGeometry = new THREE.CapsuleGeometry(bodyRadius, bodyHeight, 16, 32);
+      // Body capsule
+      const bodyGeometry = new THREE.CapsuleGeometry(bodyRadius, bodyHeight, 12, 24);
       const bodyMaterial = new THREE.MeshStandardMaterial({
         color: bodyColor,
         roughness: 0.4,
         metalness: 0.2,
         emissive: emissiveColor,
-        emissiveIntensity: emissiveIntensity
+        emissiveIntensity: emissiveIntensity,
+        transparent: opacity < 1.0,
+        opacity: opacity
       });
       const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
       body.position.y = bodyHeight / 2 + bodyRadius;
       playerGroup.add(body);
 
-      // Head - proportional to body, HIGH resolution
-      const headGeometry = new THREE.SphereGeometry(headRadius, 32, 32);
+      // Head
+      const headGeometry = new THREE.SphereGeometry(headRadius, 24, 24);
       const headMaterial = new THREE.MeshStandardMaterial({
         color: headColor,
+        transparent: opacity < 1.0,
+        opacity: opacity,
         roughness: 0.3,
         metalness: 0.3,
         emissive: emissiveColor,
@@ -907,13 +1043,13 @@ export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset
       head.position.y = bodyHeight + bodyRadius * 2 + headRadius * 0.8;
       playerGroup.add(head);
 
-      // Glow ring for key players (QB and target)
-      if (isKeyPlayer) {
-        const ringGeometry = new THREE.RingGeometry(bodyRadius + 0.3, bodyRadius + 0.6, 48);
+      // Glow ring (only for players with showGlow)
+      if (showGlow) {
+        const ringGeometry = new THREE.RingGeometry(bodyRadius + 0.2, bodyRadius + 0.5, 32);
         const ringMaterial = new THREE.MeshBasicMaterial({
           color: emissiveColor,
           transparent: true,
-          opacity: 0.4,
+          opacity: isHighlightedPlayer ? 0.6 : 0.3,
           side: THREE.DoubleSide
         });
         const ring = new THREE.Mesh(ringGeometry, ringMaterial);
@@ -922,34 +1058,49 @@ export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset
         playerGroup.add(ring);
       }
 
-      // Jersey number sprite
-      const jerseyNumber = playerData.nflId ? playerData.nflId % 100 : Math.floor(Math.random() * 99) + 1;
-      const numberColor = isOffense ? '#ffffff' : '#ffff00';
-      const numberSprite = createNumberSprite(jerseyNumber, numberColor);
-      numberSprite.position.set(0, bodyHeight + bodyRadius * 2 + headRadius * 2 + 0.5, 0);
-      numberSprite.scale.setScalar(isKeyPlayer ? 1.5 : 1.2);
-      playerGroup.add(numberSprite);
+      // Labels - only for key players in focus mode
+      if (showLabel && isHighlightedPlayer) {
+        // NAME LABEL for highlighted player
+        const displayName = playerData.name || playerData.displayName || highlightPlayer;
+        const nameSprite = createNameSprite(displayName, playerData.position, '#00FFFF');
+        nameSprite.position.set(0, bodyHeight + bodyRadius * 2 + headRadius * 2 + 1.5, 0);
+        playerGroup.add(nameSprite);
+      } else if (showLabel && (isQB || isMatchupDefender)) {
+        // Short label for QB and matchup defender
+        const labelText = isQB ? 'QB' : (playerData.position || 'DEF');
+        const jerseyNumber = playerData.jersey || (playerData.nflId ? playerData.nflId % 100 : '');
+        const numberSprite = createNumberSprite(jerseyNumber, isQB ? '#FFD700' : '#FF4444');
+        numberSprite.position.set(0, bodyHeight + bodyRadius * 2 + headRadius * 2 + 0.5, 0);
+        numberSprite.scale.setScalar(1.2);
+        playerGroup.add(numberSprite);
+      } else if (!highlightPlayer) {
+        // Normal mode - show jersey numbers for everyone
+        const jerseyNumber = playerData.jersey || (playerData.nflId ? playerData.nflId % 100 : Math.floor(Math.random() * 99) + 1);
+        const numberColor = isOffense ? '#ffffff' : '#ffff00';
+        const numberSprite = createNumberSprite(jerseyNumber, numberColor);
+        numberSprite.position.set(0, bodyHeight + bodyRadius * 2 + headRadius * 2 + 0.5, 0);
+        numberSprite.scale.setScalar(1.0);
+        playerGroup.add(numberSprite);
+      }
 
-      // Point light for key players
-      if (isKeyPlayer) {
-        const playerLight = new THREE.PointLight(emissiveColor, 1.0, 15);
+      // Point light (only for glowing players)
+      if (showGlow) {
+        const playerLight = new THREE.PointLight(emissiveColor, isHighlightedPlayer ? 2.5 : 0.8, isHighlightedPlayer ? 30 : 12);
         playerLight.position.y = bodyHeight / 2;
         playerGroup.add(playerLight);
       }
 
-      // Speed trail dots - ONLY for offensive skill players (not QB, not defense)
+      // Speed trail dots - ONLY for highlighted player in focus mode
       const trailDots = [];
-      const isOffensiveSkillPlayer = playerData.side === 'Offense' && playerData.role !== 'Passer';
 
-      if (isOffensiveSkillPlayer) {
+      if (isHighlightedPlayer) {
         for (let i = 0; i < 5; i++) {
-          // Bigger dots to match bigger players
-          const dotSize = isTarget ? 0.4 - i * 0.05 : 0.25 - i * 0.03;
-          const dotGeometry = new THREE.SphereGeometry(dotSize, 16, 16);
+          const dotSize = 0.4 - i * 0.05;
+          const dotGeometry = new THREE.SphereGeometry(dotSize, 12, 12);
           const dotMaterial = new THREE.MeshBasicMaterial({
-            color: isTarget ? 0x00FFFF : bodyColor, // Cyan for target
+            color: 0x00FFFF,
             transparent: true,
-            opacity: isTarget ? 0.6 - i * 0.1 : 0.3 - i * 0.05
+            opacity: 0.7 - i * 0.12
           });
           const dot = new THREE.Mesh(dotGeometry, dotMaterial);
           dot.visible = false;
@@ -1064,69 +1215,70 @@ export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset
       }
     }
 
-    // Center camera on the play
-    if (cameraRef.current) {
-      const camera = cameraRef.current;
-      const losX = play.yardline || 35;
+    // Camera is controlled by resetCamera and cameraPreset effects only
+    // Don't reset camera here when play changes
+  }, [play, onFrameCount, highlightPlayer]);
 
-      // Position camera behind the offense looking downfield
-      camera.position.set(losX - 15, 20, FIELD_WIDTH / 2);
-      cameraEuler.current = { yaw: Math.PI / 2, pitch: -0.3 };
-      cameraVelocity.current = { x: 0, y: 0, z: 0 };
-
-      camera.rotation.order = 'YXZ';
-      camera.rotation.y = cameraEuler.current.yaw;
-      camera.rotation.x = cameraEuler.current.pitch;
-    }
-  }, [play, onFrameCount]);
-
-  // Handle camera reset
+  // Handle camera reset - center on ball position (only when resetCamera changes)
   useEffect(() => {
     if (!cameraRef.current || resetCamera === 0) return;
 
     const camera = cameraRef.current;
-    const losX = play?.yardline || 35;
+    const currentPlay = playRef.current;
 
-    // Reset to behind QB position, facing downfield (+X direction)
-    camera.position.set(losX - 15, 20, FIELD_WIDTH / 2);
+    // Find ball position at frame 1 (or use yardline as fallback)
+    let centerX = currentPlay?.yardline || 35;
+    let centerZ = FIELD_WIDTH / 2;
+
+    if (currentPlay?.ball && currentPlay.ball.length > 0) {
+      const ballFrame = currentPlay.ball.find(b => b.f === 1) || currentPlay.ball[0];
+      if (ballFrame) {
+        centerX = ballFrame.x || centerX;
+        centerZ = ballFrame.y || centerZ;
+      }
+    }
+
+    // Reset to behind ball position, facing downfield (+X direction)
+    camera.position.set(centerX - 15, 20, centerZ);
     cameraEuler.current = { yaw: Math.PI / 2, pitch: -0.3 }; // 90 degrees = facing +X
     cameraVelocity.current = { x: 0, y: 0, z: 0 };
 
     camera.rotation.order = 'YXZ';
     camera.rotation.y = cameraEuler.current.yaw;
     camera.rotation.x = cameraEuler.current.pitch;
-  }, [resetCamera, play]);
+  }, [resetCamera]); // Only trigger on explicit reset, not play change
 
-  // Handle camera presets
+  // Handle camera presets - only when preset changes, NOT when play changes
   useEffect(() => {
-    if (!cameraRef.current || !play) return;
+    if (!cameraRef.current) return;
     const camera = cameraRef.current;
-    const losX = play.yardline || 35;
+
+    // Use center of field as default - don't depend on play
+    const centerX = 50;
+    const centerZ = FIELD_WIDTH / 2;
 
     // Reset velocity when changing presets
     cameraVelocity.current = { x: 0, y: 0, z: 0 };
 
     switch (cameraPreset) {
       case 'behind':
-        // Behind QB looking downfield (+X direction)
-        camera.position.set(losX - 15, 20, FIELD_WIDTH / 2);
+        // Behind ball looking downfield (+X direction)
+        camera.position.set(centerX - 15, 20, centerZ);
         cameraEuler.current = { yaw: Math.PI / 2, pitch: -0.3 };
         break;
       case 'all22':
-        // High overhead view looking down at field
-        camera.position.set(losX + 10, 60, FIELD_WIDTH / 2);
+        // High overhead view looking down at ball
+        camera.position.set(centerX + 10, 60, centerZ);
         cameraEuler.current = { yaw: Math.PI / 2, pitch: -1.2 };
         break;
       case 'endzone':
-        // From downfield looking back toward QB (-X direction)
-        // Positioned in the open area before the east stands
-        camera.position.set(losX + 65, 18, FIELD_WIDTH / 2);
+        // From downfield looking back toward ball (-X direction)
+        camera.position.set(centerX + 65, 18, centerZ);
         cameraEuler.current = { yaw: -Math.PI / 2, pitch: -0.2 };
         break;
       case 'sideline':
         // Sideline broadcast view (from side, looking across field)
-        // Positioned in the open area before the north stands
-        camera.position.set(losX + 5, 18, -30);
+        camera.position.set(centerX + 5, 18, -30);
         cameraEuler.current = { yaw: Math.PI, pitch: -0.2 };
         break;
       default:
@@ -1137,7 +1289,7 @@ export default function Field3D({ play, currentFrame, onFrameCount, cameraPreset
     camera.rotation.order = 'YXZ';
     camera.rotation.y = cameraEuler.current.yaw;
     camera.rotation.x = cameraEuler.current.pitch;
-  }, [cameraPreset, play]);
+  }, [cameraPreset]); // Only trigger on preset change, not play change
 
   return (
     <div

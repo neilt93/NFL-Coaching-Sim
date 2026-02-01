@@ -1,161 +1,92 @@
 /**
- * Gemini API Client for Mirror Match
+ * Gemini API Client for Coach AI
  * Parses natural language queries into structured filters
  *
- * BULLETPROOF VERSION - Demo-safe with validation and fallbacks
+ * All responses come from Gemini - no hardcoded demo responses
  */
 
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 // Valid values for validation
-const VALID_TEAMS = ['KC', 'PHI', 'BUF', 'SF', 'MIA', 'DET'];
+// Note: Current data is KC vs NE from 2017
+const VALID_TEAMS = ['KC', 'NE'];
 const VALID_DOWNS = [1, 2, 3, 4];
 const VALID_FIELD_ZONES = ['redzone', 'midfield', 'own_territory'];
 const VALID_VIEW_MODES = ['replay', 'chart', 'routes'];
 
-// Demo-safe hardcoded responses for critical queries
-const DEMO_RESPONSES = {
-  // 3rd and long queries
-  '3rd and long': {
-    filters: { down: 3, distanceMin: 7 },
-    response: "KC is efficient on 3rd and long - they target the middle of the field heavily, especially Kelce on dig routes. 64% completion rate, 9.0 yards per attempt.",
-    viewMode: 'replay'
-  },
-  'third and long': {
-    filters: { down: 3, distanceMin: 7 },
-    response: "KC is efficient on 3rd and long - they target the middle of the field heavily, especially Kelce on dig routes. 64% completion rate, 9.0 yards per attempt.",
-    viewMode: 'replay'
-  },
-
-  // Red zone queries
-  'red zone': {
-    filters: { fieldZone: 'redzone' },
-    response: "In the red zone, KC becomes extremely efficient. Condensed field means Kelce dominates - watch for quick slants and fade routes in the corner.",
-    viewMode: 'replay'
-  },
-  'redzone': {
-    filters: { fieldZone: 'redzone' },
-    response: "In the red zone, KC becomes extremely efficient. Condensed field means Kelce dominates - watch for quick slants and fade routes in the corner.",
-    viewMode: 'replay'
-  },
-
-  // Route overlay queries - THE WOW MOMENT
-  // NO down filter by default - show ALL routes for the player
-  'kelce routes': {
-    filters: { targetPlayer: 'Kelce' },
-    response: "Here are all of Kelce's routes. Notice the clustering in the 10-15 yard range over the middle - that's his bread and butter territory.",
-    viewMode: 'routes'
-  },
-  'show me kelce': {
-    filters: { targetPlayer: 'Kelce' },
-    response: "Here are all of Kelce's route patterns. He dominates the intermediate middle of the field.",
-    viewMode: 'routes'
-  },
-  'where does kelce run': {
-    filters: { targetPlayer: 'Kelce' },
-    response: "Here's every Kelce route overlaid. You can see his favorite areas - intermediate middle and the seams.",
-    viewMode: 'routes'
-  },
-  'kelce 3rd': {
-    filters: { down: 3, targetPlayer: 'Kelce' },
-    response: "Kelce's routes on 3rd down specifically - notice he runs dig routes over the middle to get the first down.",
-    viewMode: 'routes'
-  },
-  'hill routes': {
-    filters: { targetPlayer: 'Hill' },
-    response: "Tyreek Hill's route tree - notice the deep shots and quick screens. His speed creates separation on every route.",
-    viewMode: 'routes'
-  },
-  'where does hill run': {
-    filters: { targetPlayer: 'Hill' },
-    response: "Hill's routes show his dual threat - deep posts and short crossers.",
-    viewMode: 'routes'
-  },
-
-  // Pass chart queries - with TIGHT filters for readable charts
-  'pass chart': {
-    filters: { down: 3 },
-    response: "Pass chart for 3rd down plays. Green = completion, red = incomplete. Notice the clustering in the intermediate middle.",
-    viewMode: 'chart'
-  },
-  'pass chart 3rd': {
-    filters: { down: 3, distanceMin: 7 },
-    response: "Pass chart for 3rd and long. Green = catch, red = incomplete. Heavy targeting of the middle of the field.",
-    viewMode: 'chart'
-  },
-  'where do they throw': {
-    filters: { down: 3 },
-    response: "KC's 3rd down pass distribution. Green dots = completions, red = incompletions.",
-    viewMode: 'chart'
-  },
-  'throws to kelce': {
-    filters: { targetPlayer: 'Kelce' },
-    response: "All passes targeted to Kelce. Green = catch, red = incomplete. Notice his favorite spots.",
-    viewMode: 'chart'
-  },
-
-  // Tight coverage
-  'tight coverage': {
-    filters: { coverageTight: true },
-    response: "Against tight man coverage (defender within 3 yards), KC still completes 58% of passes. Mahomes excels at buying time.",
-    viewMode: 'replay'
-  },
-  'man coverage': {
-    filters: { coverageTight: true },
-    response: "Against tight man coverage, KC relies on Kelce's release and Hill's speed. Watch the quick-developing routes.",
-    viewMode: 'replay'
-  },
-
-  // Shotgun
-  'shotgun': {
-    filters: { shotgun: true },
-    response: "KC runs 74% of plays from shotgun. It gives Mahomes better vision and more time to read the defense.",
-    viewMode: 'replay'
-  }
+// Teams that users might ask about but aren't in the data
+const TEAM_ALIASES = {
+  'chiefs': 'KC', 'kansas city': 'KC', 'kc': 'KC',
+  'patriots': 'NE', 'new england': 'NE', 'ne': 'NE', 'pats': 'NE',
 };
 
-// System prompt - conversational coach that only shows plays when asked
-const SYSTEM_PROMPT = `You are an expert NFL coaching assistant with deep knowledge of football strategy, schemes, and game planning. You can have normal conversations about football, explain concepts, answer questions, and give strategic advice.
+// System prompt - smart coaching assistant with simulation explanations
+const SYSTEM_PROMPT = `CRITICAL CONTEXT:
+- This is 2023 NFL season data from NFL Big Data Bowl 2026
+- KC Chiefs QB is Patrick Mahomes (#15), NOT Alex Smith
+- Key KC players: Patrick Mahomes (QB), Travis Kelce (TE), Rashee Rice (WR), Isiah Pacheco (RB)
+- NE Patriots QB is Mac Jones
+- This data covers KC and NE games only
 
-You have access to real 2023 season data:
-- KC Chiefs: 487 pass plays, Mahomes (QB), Kelce (TE, 32 targets, 68% catch rate, 11.2 avg yards), Rice (WR, 20 targets)
-- Pass rate: 62% overall, 71% on 3rd down
-- Shotgun rate: 74%
-- Red zone efficiency: 58%
+You are an expert NFL defensive coordinator helping a coach game plan. You speak like a coach, not a stats bot.
 
-CRITICAL RULES:
-1. For general questions, greetings, or strategy discussions ("what's up", "explain cover 2", "how do I beat zone"), just respond conversationally. Set filters to null.
-2. ONLY include filters/portal when the user EXPLICITLY asks to SEE, SHOW, or WATCH plays, routes, or charts.
-3. Keywords that trigger visualization: "show me", "let me see", "watch", "display", "visualize", "pull up"
-4. Keywords that are just questions (NO visualization): "what", "why", "how", "explain", "tell me about", "what's"
+RESPONSE STYLE:
+- Sound like a coach talking to another coach
+- Be specific about players, routes, and tendencies
+- When showing plays, explain WHAT TO LOOK FOR in the visualization
 
-Return JSON:
+WHEN SHOWING PLAYS (filters not null):
+Your response should tell the coach what to watch for in the simulation:
+- "Watch how Kelce settles into the soft spot at 12 yards..."
+- "Notice how Hill stacks the defender on this route..."
+- "Look at the pocket collapse timing - Mahomes extends the play..."
+
+WHEN GIVING ADVICE (filters null):
+Give DETAILED actionable coaching insight. Include:
+- The key player and their specific tendencies
+- The route concepts or formations they favor
+- A specific defensive adjustment with technique
+- Why this adjustment works
+
+Example of GOOD detailed advice:
+"On 3rd down, KC runs through Kelce. He lines up in the slot 70% of the time and runs dig routes at 8-12 yards - right at the sticks. Bracket him with your nickel LB in man underneath and roll your safety over the top. This takes away his favorite window and forces Mahomes to go to his second read outside, where he's less comfortable under pressure."
+
+Return JSON (no markdown):
 {
-  "response": "your conversational coaching response",
-  "filters": null OR { "offense": "KC", "down": 3, "distanceMin": 7, etc },
-  "viewMode": null OR "replay" | "chart" | "routes"
+  "response": "What to look for OR coaching advice",
+  "filters": { "offense": "KC", ... } OR null,
+  "viewMode": "replay" | "chart" | "routes" | null,
+  "explanation": "Brief note for each play - what makes this play interesting" (only when filters not null)
 }
 
-Filter options (only when showing plays):
+Filter options:
+- offense: "KC" or "NE"
 - down: 1-4
 - distanceMin/distanceMax: yards to go
+- yardsGainedMin/yardsGainedMax: filter by result
 - fieldZone: "redzone"
-- coverageTight: true/false
-- targetPlayer: "Kelce", "Rice", etc
+- targetPlayer: "Kelce", "Hill", etc.
 - playType: "pass" | "run"
+- isTouchdown: true (for touchdown plays only)
 
-viewMode (only when showing plays):
-- "routes" = route patterns overlay
-- "chart" = pass location chart
-- "replay" = watch specific plays
+viewMode (only when filters is not null):
+- "replay" = animated play-by-play (default)
+- "routes" = route tree for ONE receiver (Kelce, Rice, etc.) - NEVER use for QB
+- "chart" = pass locations as dots (green=complete, red=incomplete) - USE THIS FOR QB QUERIES
 
-Examples:
-- "what's up" → {"response": "Hey coach! Ready to break down some film. What situation are you game planning for?", "filters": null, "viewMode": null}
-- "explain cover 2" → {"response": "Cover 2 splits the deep field between two safeties, each responsible for half. Corners play the flats...", "filters": null, "viewMode": null}
-- "show me 3rd and long" → {"response": "Here's KC on 3rd and 7+. Notice how they favor the intermediate middle.", "filters": {"offense": "KC", "down": 3, "distanceMin": 7}, "viewMode": "replay"}
-- "where does Kelce run" → {"response": "Kelce's route tree - he dominates the intermediate middle on digs and crossers.", "filters": {"targetPlayer": "Kelce"}, "viewMode": "routes"}
+IMPORTANT RULES:
+- QB queries (Mahomes, Mac Jones) → use "chart" mode, NOT "routes". QBs don't run routes.
+- Receiver/TE queries (Kelce, Rice, Hill) → use "routes" mode with targetPlayer set
+- Always set targetPlayer when using routes mode
 
-Return ONLY JSON, no markdown.`;
+EXAMPLES:
+- "how do I defend KC on 3rd down" → {"response": "On 3rd down, everything flows through Kelce. He lines up in the slot and runs dig routes at 8-12 yards - right at the sticks. Bracket him with your nickel LB in man underneath and roll a safety over the top. This takes away Mahomes' security blanket and forces him to look outside, where he's less comfortable under pressure. If you can get him off his first read, that's when mistakes happen.", "filters": null, "viewMode": null}
+- "show me Kelce's routes on 3rd down" → {"response": "Watch Kelce's route tree on 3rd down. He attacks the middle at the sticks - digs, crossers, and seams.", "filters": {"offense": "KC", "targetPlayer": "Kelce", "down": 3}, "viewMode": "routes"}
+- "show me red zone" → {"response": "Red zone offense - the compressed field favors Kelce's size. Watch for quick slants and back-shoulder fades.", "filters": {"offense": "KC", "fieldZone": "redzone"}, "viewMode": "replay"}
+- "show me Mahomes" → {"response": "Here's where Mahomes throws. Green dots are completions, red are incompletions.", "filters": {"offense": "KC", "playType": "pass"}, "viewMode": "chart"}
+- "touchdowns" → {"response": "KC scoring plays - watch how they finish drives.", "filters": {"offense": "KC", "isTouchdown": true}, "viewMode": "replay"}
+
+This is 2023 data - Mahomes is the QB, not Alex Smith.`;
 
 /**
  * Build context from tendency data
@@ -166,25 +97,6 @@ function buildTendencyContext(tendencies, team) {
 
   return `
 ${team} tendencies: Pass ${(data.overall?.passRate * 100).toFixed(0)}%, Shotgun ${(data.overall?.shotgunRate * 100).toFixed(0)}%, Avg ${data.overall?.avgYards?.toFixed(1)} yds`;
-}
-
-/**
- * Check for demo-safe response match
- */
-function getDemoResponse(message, selectedTeam) {
-  const lower = message.toLowerCase();
-
-  for (const [key, value] of Object.entries(DEMO_RESPONSES)) {
-    if (lower.includes(key)) {
-      return {
-        filters: { offense: selectedTeam, ...value.filters },
-        response: value.response.replace(/KC/g, selectedTeam),
-        viewMode: value.viewMode
-      };
-    }
-  }
-
-  return null;
 }
 
 /**
@@ -227,9 +139,22 @@ function validateFilters(filters, selectedTeam) {
     validated.playType = filters.playType;
   }
 
+  // Yards gained filters (for "longest throws", "big plays", etc.)
+  if (filters.yardsGainedMin && filters.yardsGainedMin >= 1 && filters.yardsGainedMin <= 99) {
+    validated.yardsGainedMin = filters.yardsGainedMin;
+  }
+  if (filters.yardsGainedMax && filters.yardsGainedMax >= 1 && filters.yardsGainedMax <= 99) {
+    validated.yardsGainedMax = filters.yardsGainedMax;
+  }
+
   // Target player for route overlays
   if (filters.targetPlayer && typeof filters.targetPlayer === 'string') {
     validated.targetPlayer = filters.targetPlayer;
+  }
+
+  // Touchdown filter
+  if (typeof filters.isTouchdown === 'boolean') {
+    validated.isTouchdown = filters.isTouchdown;
   }
 
   return validated;
@@ -246,17 +171,13 @@ function validateViewMode(viewMode) {
  * Query Gemini and parse into filters + response
  */
 export async function queryGemini(message, tendencies, selectedTeam, apiKey) {
-  // If no API key, use demo responses or local parsing
+  // If no API key, use local parsing as fallback
   if (!apiKey) {
-    const demoResponse = getDemoResponse(message, selectedTeam);
-    if (demoResponse) {
-      console.log('Demo mode - using cached response for:', message);
-      return demoResponse;
-    }
+    console.log('No API key, using local parsing');
     return parseQueryLocally(message, selectedTeam);
   }
 
-  // API key present - ALWAYS call Gemini for real thinking
+  // Call Gemini API for all queries
   console.log('Calling Gemini API for:', message);
 
   const context = buildTendencyContext(tendencies, selectedTeam);
@@ -307,7 +228,8 @@ export async function queryGemini(message, tendencies, selectedTeam, apiKey) {
         return {
           filters: null,
           response: parsed.response || "I'm here to help with coaching strategy. What would you like to know?",
-          viewMode: null
+          viewMode: null,
+          explanation: null
         };
       }
 
@@ -318,7 +240,8 @@ export async function queryGemini(message, tendencies, selectedTeam, apiKey) {
       return {
         filters: validatedFilters,
         response: parsed.response || 'Here are the matching plays.',
-        viewMode: validatedViewMode
+        viewMode: validatedViewMode,
+        explanation: parsed.explanation || null
       };
     } catch (parseError) {
       console.error('Failed to parse Gemini JSON, using fallback');
@@ -336,13 +259,46 @@ export async function queryGemini(message, tendencies, selectedTeam, apiKey) {
 function parseQueryLocally(message, selectedTeam) {
   const lower = message.toLowerCase();
 
+  // Check for teams not in the data
+  const unavailableTeams = ['philadelphia', 'eagles', 'philly', 'buffalo', 'bills', 'miami', 'dolphins',
+    'detroit', 'lions', 'san francisco', '49ers', 'niners', 'dallas', 'cowboys', 'ravens', 'baltimore',
+    'bengals', 'cincinnati', 'steelers', 'pittsburgh', 'browns', 'cleveland', 'jets', 'giants'];
+  const askedUnavailableTeam = unavailableTeams.some(t => lower.includes(t));
+
+  if (askedUnavailableTeam) {
+    // Detect what situation they're asking about
+    let situation = '';
+    if (lower.includes('red zone') || lower.includes('redzone')) situation = 'red zone';
+    else if (lower.includes('3rd')) situation = '3rd down';
+    else if (lower.includes('pass')) situation = 'passing';
+    else if (lower.includes('run')) situation = 'rushing';
+
+    return {
+      filters: null,
+      response: `I only have KC vs NE data from their 2017 matchup. ${situation ? `Want to see ${situation} plays for KC or NE instead?` : 'Ask me about KC or NE plays!'}`,
+      viewMode: null
+    };
+  }
+
+  // Detect team from message
+  let detectedTeam = selectedTeam;
+  if (lower.includes('patriots') || lower.includes('new england') || lower.match(/\bne\b/) || lower.includes('pats')) {
+    detectedTeam = 'NE';
+  } else if (lower.includes('chiefs') || lower.includes('kansas city') || lower.match(/\bkc\b/)) {
+    detectedTeam = 'KC';
+  }
+
   // Keywords that trigger visualization
-  const vizTriggers = ['show', 'watch', 'display', 'pull up', 'let me see', 'visualize', 'play'];
+  const vizTriggers = ['show', 'watch', 'display', 'pull up', 'let me see', 'visualize', 'sim', 'run sim', 'simulate', 'run it', 'see it', 'passing', 'passes', 'throws', 'routes', 'plays', 'tendencies', 'runs', 'running'];
   const hasVizTrigger = vizTriggers.some(t => lower.includes(t));
+
+  // Player name + action = show plays (e.g., "smith passing", "kelce routes", "kelce runs")
+  const playerActionPattern = /(smith|kelce|hill|travis|tyreek|alex)\s*(passing|passes|throws|routes|targets|plays|runs|running)/i;
+  const hasPlayerAction = playerActionPattern.test(lower);
 
   // Keywords that are just questions (no visualization)
   const questionWords = ["what's", 'whats', 'what is', 'why', 'how do', 'how does', 'explain', 'tell me about', 'hey', 'hello', 'hi', 'sup', "what's up"];
-  const isJustQuestion = questionWords.some(q => lower.includes(q)) && !hasVizTrigger;
+  const isJustQuestion = questionWords.some(q => lower.includes(q)) && !hasVizTrigger && !hasPlayerAction;
 
   // If it's just a question with no viz trigger, return conversational response
   if (isJustQuestion) {
@@ -354,21 +310,91 @@ function parseQueryLocally(message, selectedTeam) {
   }
 
   // Check for specific visualization requests
-  const filters = { offense: selectedTeam };
+  const filters = { offense: detectedTeam };
   let response = '';
   let viewMode = 'replay';
   let hasFilter = false;
 
-  // Player names for route filtering
+  // Handle "important/big/clutch plays" - high leverage situations
+  if (lower.includes('important') || lower.includes('clutch') || lower.includes('key')) {
+    filters.down = 3;
+    hasFilter = true;
+    response = `High-leverage plays - 3rd down situations where execution matters most.`;
+  }
+
+  if (lower.includes('big play') && !lower.includes('run') && !lower.includes('pass') && !lower.includes('throw')) {
+    filters.yardsGainedMin = 15; // Big plays = 15+ yards
+    hasFilter = true;
+    response = `Big plays - chunk gains of 15+ yards that move the chains.`;
+  }
+
+  // Longest throws / deep passes
+  if ((lower.includes('longest') || lower.includes('deep') || lower.includes('big')) &&
+      (lower.includes('throw') || lower.includes('pass') || lower.includes('shot'))) {
+    filters.playType = 'pass';
+    filters.yardsGainedMin = 15;
+    hasFilter = true;
+    response = `Deep passing plays - explosive completions of 15+ yards downfield.`;
+    viewMode = 'replay';
+  }
+
+  // Longest runs / big runs
+  if ((lower.includes('longest') || lower.includes('big') || lower.includes('explosive')) &&
+      (lower.includes('run') || lower.includes('rush'))) {
+    filters.playType = 'run';
+    filters.yardsGainedMin = 8;
+    hasFilter = true;
+    response = `Explosive runs - 8+ yard gains on the ground.`;
+    viewMode = 'replay';
+  }
+
+  // Generic "passes" / "passing" / "pass plays" query
+  if (!hasFilter && (lower.includes('pass') || lower.includes('passing')) &&
+      !lower.includes('chart') && !lower.includes('longest') && !lower.includes('deep')) {
+    filters.playType = 'pass';
+    hasFilter = true;
+    response = `${detectedTeam} passing plays - see their aerial attack.`;
+    viewMode = 'replay';
+  }
+
+  // Generic "runs" / "rushing" query
+  if (!hasFilter && (lower.includes('run') || lower.includes('rush')) &&
+      !lower.includes('longest') && !lower.includes('big')) {
+    filters.playType = 'run';
+    hasFilter = true;
+    response = `${detectedTeam} run plays - see their ground game.`;
+    viewMode = 'replay';
+  }
+
+  // Handle "passing/throws" queries - show pass plays
+  if ((lower.includes('smith') || lower.includes('qb')) && (lower.includes('pass') || lower.includes('throw'))) {
+    filters.playType = 'pass';
+    hasFilter = true;
+    viewMode = 'chart';
+    response = `Mahomes' pass distribution - notice his ability to attack all levels.`;
+  }
+
+  // Handle "[team] passing/tendencies" - show team pass plays
+  if ((lower.includes('kc') || lower.includes('chiefs') || lower.includes('kansas')) &&
+      (lower.includes('pass') || lower.includes('tendenc'))) {
+    filters.offense = 'KC';
+    filters.playType = 'pass';
+    hasFilter = true;
+    response = `KC passing tendencies - heavy shotgun, intermediate targets.`;
+  }
+
+  // Player names for route filtering (2017 KC vs NE data)
   const playerPatterns = [
     { pattern: /kelce/i, name: 'Kelce' },
     { pattern: /hill/i, name: 'Hill' },
     { pattern: /travis/i, name: 'Kelce' },
     { pattern: /tyreek/i, name: 'Hill' },
-    { pattern: /rice/i, name: 'Rice' },
-    { pattern: /brown/i, name: 'Brown' },
-    { pattern: /diggs/i, name: 'Diggs' },
-    { pattern: /waddle/i, name: 'Waddle' },
+    { pattern: /hunt/i, name: 'Hunt' },
+    { pattern: /kareem/i, name: 'Hunt' },
+    { pattern: /gronk/i, name: 'Gronkowski' },
+    { pattern: /gronkowski/i, name: 'Gronkowski' },
+    { pattern: /cooks/i, name: 'Cooks' },
+    { pattern: /amendola/i, name: 'Amendola' },
   ];
 
   let detectedPlayer = null;
@@ -379,15 +405,29 @@ function parseQueryLocally(message, selectedTeam) {
     }
   }
 
-  // Route overlay request
-  if (lower.includes('route') || (lower.includes('where does') && (lower.includes('run') || lower.includes('go')))) {
+  // Route overlay request - "routes", "runs", "where does X run/go"
+  if (lower.includes('route') ||
+      (detectedPlayer && lower.includes('runs')) ||
+      (lower.includes('where does') && (lower.includes('run') || lower.includes('go')))) {
     viewMode = 'routes';
     hasFilter = true;
     if (detectedPlayer) {
       filters.targetPlayer = detectedPlayer;
-      response = `Showing ${detectedPlayer}'s route patterns.`;
+      response = `${detectedPlayer}'s route tree - digs, crossers, and seams in the intermediate zone.`;
     } else {
-      response = `Showing route overlay for ${selectedTeam}.`;
+      response = `Route concepts for ${selectedTeam}.`;
+    }
+  }
+
+  // Player + "plays" or "targets" - show that player's involvement
+  if (detectedPlayer && (lower.includes('play') || lower.includes('target') || lower.includes('catch'))) {
+    filters.targetPlayer = detectedPlayer;
+    hasFilter = true;
+    if (lower.includes('important') || lower.includes('key') || lower.includes('clutch')) {
+      filters.down = 3;
+      response = `${detectedPlayer}'s clutch plays - 3rd down situations where he's the go-to target.`;
+    } else {
+      response = `${detectedPlayer}'s targets - his role in the offense.`;
     }
   }
 
@@ -432,6 +472,23 @@ function parseQueryLocally(message, selectedTeam) {
     filters.shotgun = true;
     hasFilter = true;
     response = response || `${selectedTeam} from shotgun.`;
+  }
+
+  // Touchdowns
+  if (lower.includes('touchdown') || lower.includes('td') || lower.includes('score')) {
+    filters.isTouchdown = true;
+    hasFilter = true;
+    response = `${selectedTeam} touchdown plays - watch how they finish drives.`;
+    viewMode = 'replay';
+  }
+
+  // If viz trigger but no specific filter, show all plays for the team
+  if (!hasFilter && hasVizTrigger) {
+    return {
+      filters: { offense: selectedTeam },
+      response: `Showing ${selectedTeam} plays. Ask about specific situations like "3rd and long" or "red zone" for more targeted analysis.`,
+      viewMode: 'replay'
+    };
   }
 
   // If no specific filter was found, return conversational

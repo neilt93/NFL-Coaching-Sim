@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import Field3D from './components/Field3D';
-import StatsPanel from './components/StatsPanel';
+import ChatInterface from './components/ChatInterface';
 import { filterPlays, computeTendencies, getRepresentativePlay } from './engine/tendencyEngine';
 import './App.css';
 
@@ -40,14 +40,21 @@ function App() {
 
   // Filtered plays based on active query
   const filteredPlays = useMemo(() => {
-    if (!allPlays.length) return [];
+    if (!allPlays.length) {
+      console.log('filteredPlays: no allPlays');
+      return [];
+    }
 
     if (!activeFilters) {
       // No query - show team's plays
-      return filterPlays(allPlays, { offense: selectedTeam });
+      const result = filterPlays(allPlays, { offense: selectedTeam });
+      console.log('filteredPlays (no filters):', result.length, 'for team', selectedTeam);
+      return result;
     }
 
-    return filterPlays(allPlays, activeFilters);
+    const result = filterPlays(allPlays, activeFilters);
+    console.log('filteredPlays (with filters):', result.length, 'filters:', activeFilters);
+    return result;
   }, [allPlays, activeFilters, selectedTeam]);
 
   // Computed tendencies for filtered plays
@@ -58,38 +65,54 @@ function App() {
   // Current play
   const currentPlay = filteredPlays[currentPlayIndex];
 
-  // Load play data
+  // Load play data and tendencies
   useEffect(() => {
     console.log('Loading data...');
 
-    fetch('/plays_filtered.json')
-      .then(res => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then(data => {
-        console.log('Plays loaded:', data.plays?.length);
+    fetch('/plays.json')
+      .then(res => res.json())
+      .then(playsData => {
+        console.log('Raw plays:', playsData.plays?.length);
 
-        const validPlays = data.plays.filter(p =>
-          p.players && p.players.length > 0 && p.numFrames > 0
-        );
+        const gameInfo = playsData.game || {};
+        const homeTeam = gameInfo.home || 'HOME';
+        const awayTeam = gameInfo.away || 'AWAY';
+        console.log('Teams:', homeTeam, 'vs', awayTeam);
+
+        // Simple preprocessing
+        const processedPlays = (playsData.plays || []).map(play => ({
+          ...play,
+          offense: play.possession || awayTeam,
+          defense: play.possession === homeTeam ? awayTeam : homeTeam,
+          players: (play.players || []).map(player => ({
+            ...player,
+            team: player.team === 'home' ? homeTeam : player.team === 'away' ? awayTeam : player.team,
+            side: (player.team === 'home' ? homeTeam : awayTeam) === play.possession ? 'Offense' : 'Defense',
+            role: player.position === 'QB' ? 'Passer' : null,
+          }))
+        }));
+
+        console.log('Processed plays:', processedPlays.length);
+
+        const validPlays = processedPlays.filter(p => p.players?.length > 0 && p.numFrames > 0);
         console.log('Valid plays:', validPlays.length);
 
+        setAllPlays(validPlays);
         if (validPlays.length > 0) {
-          setAllPlays(validPlays);
           setTotalFrames(validPlays[0].numFrames);
         }
-
-        if (data.tendencies) {
-          setTendencies(data.tendencies);
-        }
-
         setLoading(false);
       })
       .catch(err => {
-        console.error('Failed to load plays:', err);
+        console.error('Failed to load:', err);
         setLoading(false);
       });
+
+    // Load tendencies separately
+    fetch('/tendencies.json')
+      .then(res => res.json())
+      .then(data => setTendencies(data))
+      .catch(() => console.log('No tendencies file'));
   }, []);
 
   // Continuous animation loop using requestAnimationFrame
@@ -283,57 +306,34 @@ function App() {
   }
 
   return (
-    <div className="app">
-      {/* SCREEN 1: Chat Interface (fullscreen, this is the app) */}
-      <div className="chat-screen">
+    <div className={`app ${portalOpen ? 'split-view' : ''}`}>
+      {/* LEFT: Chat Interface */}
+      <div className="chat-panel">
         <header className="header">
-          <h1>MIRROR MATCH</h1>
-          <div className="header-center">
-            <span className="header-tagline">AI Coaching Assistant</span>
-          </div>
-          <div className="header-right">
-            <div className="team-selector-mini">
-              {['KC', 'PHI', 'BUF', 'SF'].map(team => (
-                <button
-                  key={team}
-                  className={selectedTeam === team ? 'active' : ''}
-                  onClick={() => setSelectedTeam(team)}
-                >
-                  {team}
-                </button>
-              ))}
-            </div>
-          </div>
+          <h1>COACH AI</h1>
+          <span className="header-tagline">AI Coaching Assistant</span>
         </header>
 
-        <StatsPanel
-          play={currentPlay}
+        <ChatInterface
           plays={allPlays}
-          filteredPlays={filteredPlays}
           tendencies={tendencies}
-          filteredTendencies={filteredTendencies}
           selectedTeam={selectedTeam}
-          onTeamChange={setSelectedTeam}
           onQuery={handleQuery}
-          activeFilters={activeFilters}
-          queryLabel={queryLabel}
         />
       </div>
 
-      {/* SCREEN 2: Portal Overlay (3D visualization) */}
+      {/* RIGHT: Inline Simulation (appears when filters active) */}
       {portalOpen && (
-        <div className="portal-overlay">
-          <div className="portal-header">
-            <div className="portal-title">
-              <span className="portal-label">{queryLabel || 'Play Viewer'}</span>
-              <span className="portal-count">{filteredPlays.length} plays</span>
+        <div className="sim-panel">
+          <div className="sim-header">
+            <div className="sim-info">
+              <span className="sim-label">{queryLabel || 'Play Viewer'}</span>
+              <span className="sim-count">{filteredPlays.length} plays</span>
             </div>
-            <button className="portal-close" onClick={closePortal}>
-              ✕ Back to Chat
-            </button>
+            <button className="sim-close" onClick={closePortal}>✕</button>
           </div>
 
-          <div className="portal-content">
+          <div className="sim-content">
             <Field3D
               play={currentPlay}
               currentFrame={currentFrame}
@@ -343,99 +343,56 @@ function App() {
               cameraSpeed={cameraSpeed}
               viewMode={viewMode}
               filteredPlays={filteredPlays}
+              highlightPlayer={activeFilters?.targetPlayer}
             />
 
             {/* View Mode Toggle */}
-            <div className="view-mode-toggle">
-              <button
-                onClick={() => setViewMode('replay')}
-                className={viewMode === 'replay' ? 'active' : ''}
-              >
-                Replay
-              </button>
-              <button
-                onClick={() => {
-                  setViewMode('routes');
-                  setCameraPreset('all22');
-                  setIsPlaying(false);
-                }}
-                className={viewMode === 'routes' ? 'active' : ''}
-              >
-                Routes
-              </button>
-              <button
-                onClick={() => {
-                  setViewMode('chart');
-                  setCameraPreset('all22');
-                  setIsPlaying(false);
-                }}
-                className={viewMode === 'chart' ? 'active' : ''}
-              >
-                Pass Chart
-              </button>
-            </div>
+          </div>
 
-            {/* Camera Controls */}
-            <div className="camera-controls">
-              {[
-                { id: 'behind', label: 'Behind QB' },
-                { id: 'follow', label: 'Follow Ball' },
-                { id: 'all22', label: 'All-22' },
-                { id: 'endzone', label: 'End Zone' },
-                { id: 'sideline', label: 'Sideline' },
-              ].map(cam => (
+          {/* Sim Controls */}
+          <div className="sim-controls">
+            {/* View mode toggle */}
+            <div className="view-toggle">
+              {['replay', 'routes', 'chart'].map(mode => (
                 <button
-                  key={cam.id}
-                  onClick={() => setCameraPreset(cam.id)}
-                  className={cameraPreset === cam.id ? 'active' : ''}
+                  key={mode}
+                  onClick={() => {
+                    setViewMode(mode);
+                    if (mode !== 'replay') {
+                      setCameraPreset('all22');
+                      setIsPlaying(false);
+                    }
+                  }}
+                  className={viewMode === mode ? 'active' : ''}
                 >
-                  {cam.label}
+                  {mode === 'replay' ? '▶ Replay' : mode === 'routes' ? '◯ Routes' : '● Chart'}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Portal Footer with Controls */}
-          <div className="portal-footer">
-            {/* Play navigation - always show */}
-            <div className="play-nav-inline">
+            {/* Play navigation */}
+            <div className="play-nav">
               <button onClick={prevPlay} disabled={currentPlayIndex === 0}>◀</button>
-              <span className="play-counter">
-                <strong>{currentPlayIndex + 1}</strong> / <strong>{filteredPlays.length}</strong>
-                {viewMode !== 'replay' && <span className="view-label"> {viewMode === 'routes' ? 'routes' : 'passes'}</span>}
-              </span>
+              <span>{currentPlayIndex + 1} / {filteredPlays.length}</span>
               <button onClick={nextPlay} disabled={currentPlayIndex >= filteredPlays.length - 1}>▶</button>
             </div>
 
-            {/* Timeline controls - only in replay mode */}
+            {/* Playback controls - only in replay mode */}
             {viewMode === 'replay' && (
-              <>
-                <div className="timeline-controls">
-                  <button onClick={() => setCurrentFrame(1)}>⏮</button>
-                  <button onClick={() => stepFrame(-1)}>⏪</button>
-                  <button onClick={togglePlay} className="play-btn">
-                    {isPlaying ? '⏸' : '▶'}
-                  </button>
-                  <button onClick={() => stepFrame(1)}>⏩</button>
-                  <button onClick={() => setCurrentFrame(totalFrames)}>⏭</button>
-                </div>
-
-                <div className="timeline-scrubber">
-                  <input
-                    type="range"
-                    min={1}
-                    max={totalFrames}
-                    step={0.1}
-                    value={currentFrame}
-                    onChange={(e) => setCurrentFrame(parseFloat(e.target.value))}
-                  />
-                  <span className="time-display">
-                    {((currentFrame - 1) / 10).toFixed(1)}s / {((totalFrames - 1) / 10).toFixed(1)}s
-                  </span>
-                </div>
-
-                <div className="speed-controls">
-                  {[0.25, 0.5, 1, 2].map(speed => (
+              <div className="playback-controls">
+                <button onClick={togglePlay} className="play-btn">
+                  {isPlaying ? '⏸' : '▶'}
+                </button>
+                <input
+                  type="range"
+                  min={1}
+                  max={totalFrames}
+                  step={0.1}
+                  value={currentFrame}
+                  onChange={(e) => setCurrentFrame(parseFloat(e.target.value))}
+                />
+                <div className="speed-btns">
+                  {[0.5, 1, 2].map(speed => (
                     <button
                       key={speed}
                       onClick={() => setPlaybackSpeed(speed)}
@@ -445,7 +402,7 @@ function App() {
                     </button>
                   ))}
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>

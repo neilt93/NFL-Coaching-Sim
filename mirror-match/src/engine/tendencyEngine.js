@@ -9,7 +9,8 @@
  * Filter plays by criteria
  */
 export function filterPlays(plays, filters = {}) {
-  return plays.filter(play => {
+  console.log('filterPlays called with', plays.length, 'plays, filters:', filters);
+  const result = plays.filter(play => {
     // Down filter
     if (filters.down && play.down !== filters.down) return false;
 
@@ -17,37 +18,85 @@ export function filterPlays(plays, filters = {}) {
     if (filters.distanceMin && play.yardsToGo < filters.distanceMin) return false;
     if (filters.distanceMax && play.yardsToGo > filters.distanceMax) return false;
 
-    // Field zone filter
-    if (filters.fieldZone && play.fieldZone !== filters.fieldZone) return false;
+    // Field zone filter - use ball position at frame 1 if no yardline
+    if (filters.fieldZone === 'redzone') {
+      let inRedZone = false;
 
-    // Coverage tightness filter
-    if (filters.coverageTight !== undefined) {
-      if (!play.coverageTightness) return false;
-      if (filters.coverageTight && play.coverageTightness > 3) return false;  // tight = < 3 yards
-      if (!filters.coverageTight && play.coverageTightness <= 3) return false; // loose = > 3 yards
+      // Check yardline first
+      if (play.yardline !== undefined && play.yardline !== null) {
+        inRedZone = play.yardline <= 20;
+      }
+      // Fall back to ball position at frame 1
+      else if (play.ball && play.ball.length > 0) {
+        const ballFrame = play.ball.find(b => b.f === 1) || play.ball[0];
+        if (ballFrame && ballFrame.x !== undefined) {
+          // Red zone = within 20 yards of either endzone (x < 20 or x > 90)
+          inRedZone = ballFrame.x >= 90 || ballFrame.x <= 20;
+        }
+      }
+
+      if (!inRedZone) return false;
+    }
+
+    // Coverage tightness filter - skip if data doesn't have it
+    if (filters.coverageTight !== undefined && play.coverageTightness !== undefined) {
+      if (filters.coverageTight && play.coverageTightness > 3) return false;
+      if (!filters.coverageTight && play.coverageTightness <= 3) return false;
     }
 
     // Team filter
     if (filters.offense && play.offense !== filters.offense) return false;
     if (filters.defense && play.defense !== filters.defense) return false;
 
-    // Play type filter
-    if (filters.playType && play.playType !== filters.playType) return false;
+    // Play type filter - check passResult since data doesn't have playType field
+    if (filters.playType) {
+      const isPassPlay = play.passResult && play.passResult !== '';
+      if (filters.playType === 'pass' && !isPassPlay) return false;
+      if (filters.playType === 'run' && isPassPlay) return false;
+    }
 
-    // Shotgun filter
-    if (filters.shotgun !== undefined && play.shotgun !== filters.shotgun) return false;
+    // Yards gained filter (for "longest throws", "big plays", etc.)
+    if (filters.yardsGainedMin !== undefined && (play.yardsGained || 0) < filters.yardsGainedMin) {
+      return false;
+    }
+    if (filters.yardsGainedMax !== undefined && (play.yardsGained || 0) > filters.yardsGainedMax) {
+      return false;
+    }
 
-    // Target player filter - for route overlays
+    // Shotgun filter - check formation field if shotgun field doesn't exist
+    if (filters.shotgun !== undefined) {
+      if (play.shotgun !== undefined) {
+        if (play.shotgun !== filters.shotgun) return false;
+      } else if (play.formation) {
+        const isShotgun = play.formation.toLowerCase().includes('shotgun');
+        if (filters.shotgun && !isShotgun) return false;
+        if (!filters.shotgun && isShotgun) return false;
+      }
+      // If no formation data either, don't filter
+    }
+
+    // Target player filter - find plays where this player participated
     if (filters.targetPlayer) {
-      const target = play.players?.find(p => p.role === 'Targeted Receiver');
-      if (!target) return false;
-      // Match by last name (case insensitive)
-      const playerName = target.name || target.displayName || '';
-      if (!playerName.toLowerCase().includes(filters.targetPlayer.toLowerCase())) return false;
+      const playerName = filters.targetPlayer.toLowerCase();
+      const hasPlayer = play.players?.some(p => {
+        const name = (p.name || p.displayName || '').toLowerCase();
+        return name.includes(playerName);
+      });
+      if (!hasPlayer) return false;
+    }
+
+    // Touchdown filter - check description since isTouchdown field may not exist
+    if (filters.isTouchdown !== undefined) {
+      const isTD = play.isTouchdown ||
+                   (play.description && play.description.toLowerCase().includes('touchdown'));
+      if (filters.isTouchdown && !isTD) return false;
+      if (!filters.isTouchdown && isTD) return false;
     }
 
     return true;
   });
+  console.log('filterPlays returning', result.length, 'plays');
+  return result;
 }
 
 /**
