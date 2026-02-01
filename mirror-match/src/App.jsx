@@ -10,9 +10,9 @@ function App() {
   const [tendencies, setTendencies] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Query-driven state
-  const [activeFilters, setActiveFilters] = useState(null);
-  const [queryLabel, setQueryLabel] = useState(null);
+  // Query-driven state - start with KC plays as default
+  const [activeFilters, setActiveFilters] = useState({ offense: 'KC' });
+  const [queryLabel, setQueryLabel] = useState('KC Plays');
   const [selectedTeam, setSelectedTeam] = useState('KC');
 
   // Playback state
@@ -28,8 +28,8 @@ function App() {
   // View mode: 'replay' (animated single play) or 'chart' (all plays overlaid) or 'routes'
   const [viewMode, setViewMode] = useState('replay');
 
-  // Portal state: whether 3D viewer is open (starts closed - chat is entry point)
-  const [portalOpen, setPortalOpen] = useState(false);
+  // Portal state: start open with default sim
+  const [portalOpen, setPortalOpen] = useState(true);
 
   // Refs for animation
   const totalFramesRef = useRef(totalFrames);
@@ -100,6 +100,11 @@ function App() {
         setAllPlays(validPlays);
         if (validPlays.length > 0) {
           setTotalFrames(validPlays[0].numFrames);
+          // Auto-play on load - delay to ensure play data is rendered first
+          setTimeout(() => {
+            setResetCameraFlag(1);
+            setTimeout(() => setIsPlaying(true), 100);
+          }, 800);
         }
         setLoading(false);
       })
@@ -353,7 +358,7 @@ function App() {
           <div className="sim-controls">
             {/* View mode toggle */}
             <div className="view-toggle">
-              {['replay', 'routes', 'chart'].map(mode => (
+              {['replay', 'routes'].map(mode => (
                 <button
                   key={mode}
                   onClick={() => {
@@ -365,7 +370,7 @@ function App() {
                   }}
                   className={viewMode === mode ? 'active' : ''}
                 >
-                  {mode === 'replay' ? '▶ Replay' : mode === 'routes' ? '◯ Routes' : '● Chart'}
+                  {mode === 'replay' ? '▶ Replay' : '◯ Routes'}
                 </button>
               ))}
             </div>

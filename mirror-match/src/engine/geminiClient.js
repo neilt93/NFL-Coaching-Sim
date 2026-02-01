@@ -12,7 +12,7 @@ const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/
 const VALID_TEAMS = ['KC', 'NE'];
 const VALID_DOWNS = [1, 2, 3, 4];
 const VALID_FIELD_ZONES = ['redzone', 'midfield', 'own_territory'];
-const VALID_VIEW_MODES = ['replay', 'chart', 'routes'];
+const VALID_VIEW_MODES = ['replay', 'routes'];
 
 // Teams that users might ask about but aren't in the data
 const TEAM_ALIASES = {
@@ -55,7 +55,7 @@ Return JSON (no markdown):
 {
   "response": "What to look for OR coaching advice",
   "filters": { "offense": "KC", ... } OR null,
-  "viewMode": "replay" | "chart" | "routes" | null,
+  "viewMode": "replay" | "routes" | null,
   "explanation": "Brief note for each play - what makes this play interesting" (only when filters not null)
 }
 
@@ -70,12 +70,11 @@ Filter options:
 - isTouchdown: true (for touchdown plays only)
 
 viewMode (only when filters is not null):
-- "replay" = animated play-by-play (default)
-- "routes" = route tree for ONE receiver (Kelce, Rice, etc.) - NEVER use for QB
-- "chart" = pass locations as dots (green=complete, red=incomplete) - USE THIS FOR QB QUERIES
+- "replay" = animated play-by-play (default) - use for most queries including QB queries
+- "routes" = route tree overlay for ONE receiver/TE (Kelce, Rice, etc.) - NEVER use for QB
 
 IMPORTANT RULES:
-- QB queries (Mahomes, Mac Jones) → use "chart" mode, NOT "routes". QBs don't run routes.
+- QB queries (Mahomes, Mac Jones) → use "replay" mode. QBs don't run routes.
 - Receiver/TE queries (Kelce, Rice, Hill) → use "routes" mode with targetPlayer set
 - Always set targetPlayer when using routes mode
 
@@ -83,7 +82,7 @@ EXAMPLES:
 - "how do I defend KC on 3rd down" → {"response": "On 3rd down, everything flows through Kelce. He lines up in the slot and runs dig routes at 8-12 yards - right at the sticks. Bracket him with your nickel LB in man underneath and roll a safety over the top. This takes away Mahomes' security blanket and forces him to look outside, where he's less comfortable under pressure. If you can get him off his first read, that's when mistakes happen.", "filters": null, "viewMode": null}
 - "show me Kelce's routes on 3rd down" → {"response": "Watch Kelce's route tree on 3rd down. He attacks the middle at the sticks - digs, crossers, and seams.", "filters": {"offense": "KC", "targetPlayer": "Kelce", "down": 3}, "viewMode": "routes"}
 - "show me red zone" → {"response": "Red zone offense - the compressed field favors Kelce's size. Watch for quick slants and back-shoulder fades.", "filters": {"offense": "KC", "fieldZone": "redzone"}, "viewMode": "replay"}
-- "show me Mahomes" → {"response": "Here's where Mahomes throws. Green dots are completions, red are incompletions.", "filters": {"offense": "KC", "playType": "pass"}, "viewMode": "chart"}
+- "show me Mahomes" → {"response": "Here's Mahomes in action - watch his pocket presence and downfield accuracy.", "filters": {"offense": "KC", "playType": "pass"}, "viewMode": "replay"}
 - "touchdowns" → {"response": "KC scoring plays - watch how they finish drives.", "filters": {"offense": "KC", "isTouchdown": true}, "viewMode": "replay"}
 
 This is 2023 data - Mahomes is the QB, not Alex Smith.`;
@@ -367,11 +366,11 @@ function parseQueryLocally(message, selectedTeam) {
   }
 
   // Handle "passing/throws" queries - show pass plays
-  if ((lower.includes('smith') || lower.includes('qb')) && (lower.includes('pass') || lower.includes('throw'))) {
+  if ((lower.includes('mahomes') || lower.includes('qb')) && (lower.includes('pass') || lower.includes('throw'))) {
     filters.playType = 'pass';
     hasFilter = true;
-    viewMode = 'chart';
-    response = `Mahomes' pass distribution - notice his ability to attack all levels.`;
+    viewMode = 'replay';
+    response = `Mahomes' passing plays - watch his pocket presence and accuracy.`;
   }
 
   // Handle "[team] passing/tendencies" - show team pass plays
@@ -431,11 +430,12 @@ function parseQueryLocally(message, selectedTeam) {
     }
   }
 
-  // Pass chart request
-  else if (lower.includes('chart') || (lower.includes('where') && lower.includes('throw'))) {
-    viewMode = 'chart';
+  // "Where does X throw" - show pass plays
+  else if (lower.includes('where') && lower.includes('throw')) {
+    filters.playType = 'pass';
+    viewMode = 'replay';
     hasFilter = true;
-    response = `Showing pass chart for ${selectedTeam}. Green = catch, red = incomplete.`;
+    response = `${selectedTeam} passing plays - watch the target distribution.`;
   }
 
   // Down parsing
